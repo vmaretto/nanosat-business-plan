@@ -474,6 +474,304 @@ export default function NanoSatDashboard() {
     );
   };
 
+  // IL PROGETTO - Descrizione del Business
+  const renderProgetto = () => (
+    <div className="p-6 space-y-8 bg-gradient-to-b from-blue-50 to-white">
+      {/* Hero Section */}
+      <div className="text-center py-8">
+        <div className="flex justify-center mb-4">
+          <div className="bg-blue-600 p-4 rounded-full">
+            <Satellite size={48} className="text-white" />
+          </div>
+        </div>
+        <h1 className="text-4xl font-bold text-blue-900 mb-3">NanoSat IoT</h1>
+        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          Connettività satellitare a basso costo per i sensori IoT in aree remote
+        </p>
+        <div className="flex justify-center gap-4 mt-6">
+          <div className="bg-green-100 text-green-800 px-4 py-2 rounded-full font-bold">
+            -75% costi vs concorrenti
+          </div>
+          <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-full font-bold">
+            Copertura globale
+          </div>
+          <div className="bg-purple-100 text-purple-800 px-4 py-2 rounded-full font-bold">
+            Plug & Play
+          </div>
+        </div>
+      </div>
+
+      {/* Il Problema */}
+      <div className="bg-red-50 rounded-xl p-6 border-l-4 border-red-500">
+        <h2 className="text-2xl font-bold text-red-900 mb-4 flex items-center gap-2">
+          <AlertTriangle className="text-red-500" /> Il Problema
+        </h2>
+        <p className="text-gray-700 text-lg leading-relaxed">
+          Milioni di sensori IoT sono installati in zone senza copertura cellulare: campi agricoli, foreste,
+          oceani, deserti. Per trasmettere i loro dati devono usare satelliti come <strong>Iridium</strong> (12-15€/mese)
+          o <strong>Globalstar</strong> (8-12€/mese).
+        </p>
+        <p className="text-gray-700 text-lg leading-relaxed mt-3">
+          <strong>Il paradosso:</strong> i sensori IoT generano <em>microdati</em> (pochi byte, poche volte al giorno)
+          ma pagano per infrastrutture pensate per video e voce. È come noleggiare un TIR per consegnare una lettera.
+        </p>
+      </div>
+
+      {/* La Soluzione */}
+      <div className="bg-green-50 rounded-xl p-6 border-l-4 border-green-500">
+        <h2 className="text-2xl font-bold text-green-900 mb-4 flex items-center gap-2">
+          <CheckCircle className="text-green-500" /> La Soluzione
+        </h2>
+        <p className="text-gray-700 text-lg leading-relaxed">
+          <strong>NanoSat IoT</strong> è una costellazione di nanosatelliti (CubeSat) ottimizzata esclusivamente
+          per i microdati IoT. Niente video, niente voce: solo piccoli pacchetti di dati dai sensori.
+        </p>
+        <div className="grid grid-cols-3 gap-4 mt-6">
+          <div className="bg-white rounded-lg p-4 text-center shadow">
+            <div className="text-3xl font-bold text-green-600">2-4€</div>
+            <div className="text-gray-600">per sensore/mese</div>
+          </div>
+          <div className="bg-white rounded-lg p-4 text-center shadow">
+            <div className="text-3xl font-bold text-blue-600">100%</div>
+            <div className="text-gray-600">copertura globale</div>
+          </div>
+          <div className="bg-white rounded-lg p-4 text-center shadow">
+            <div className="text-3xl font-bold text-purple-600">24</div>
+            <div className="text-gray-600">nanosatelliti (Anno 3)</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Come Funziona */}
+      <div className="bg-white rounded-xl p-6 shadow-lg">
+        <h2 className="text-2xl font-bold text-blue-900 mb-4 flex items-center gap-2">
+          <Info className="text-blue-500" /> Come Funziona
+        </h2>
+        <div className="space-y-6 text-gray-700">
+          <div className="flex gap-4 items-start">
+            <div className="bg-blue-100 text-blue-800 font-bold rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0">1</div>
+            <div>
+              <h3 className="font-bold text-lg">Il Sensore Raccoglie i Dati</h3>
+              <p>Il sensore IoT (umidità, temperatura, GPS...) rileva un valore e lo trasforma in un piccolo pacchetto digitale di pochi byte. Alimentato a batteria o solare, può funzionare per anni senza manutenzione.</p>
+            </div>
+          </div>
+          <div className="flex gap-4 items-start">
+            <div className="bg-blue-100 text-blue-800 font-bold rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0">2</div>
+            <div>
+              <h3 className="font-bold text-lg">Il Sensore Parla al Gateway</h3>
+              <p>Il sensore invia i dati a un <strong>gateway</strong> nel campo usando tecnologie radio a basso consumo (LoRa, NB-IoT). Un gateway può raccogliere dati da centinaia di sensori nel raggio di 5-10 km.</p>
+            </div>
+          </div>
+          <div className="flex gap-4 items-start">
+            <div className="bg-blue-100 text-blue-800 font-bold rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0">3</div>
+            <div>
+              <h3 className="font-bold text-lg">Il Gateway Parla al Satellite</h3>
+              <p>Quando un nanosatellite passa sopra la zona (più volte al giorno), il gateway trasmette i dati verso lo spazio. Il satellite orbita a 400-600 km e "vede" una zona per pochi minuti - sufficiente per i microdati IoT.</p>
+            </div>
+          </div>
+          <div className="flex gap-4 items-start">
+            <div className="bg-blue-100 text-blue-800 font-bold rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0">4</div>
+            <div>
+              <h3 className="font-bold text-lg">Il Satellite Porta i Dati a Terra</h3>
+              <p>Il nanosatellite memorizza i dati e, continuando la sua orbita, li scarica quando passa sopra una <strong>ground station</strong>. Bastano poche stazioni posizionate strategicamente.</p>
+            </div>
+          </div>
+          <div className="flex gap-4 items-start">
+            <div className="bg-blue-100 text-blue-800 font-bold rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0">5</div>
+            <div>
+              <h3 className="font-bold text-lg">Il Cliente Riceve i Dati</h3>
+              <p>I dati arrivano alla nostra <strong>piattaforma cloud</strong>, vengono elaborati e resi disponibili via app e dashboard. L'agricoltore vede che il campo 3 ha bisogno di irrigazione, tutto in automatico.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mercato Target */}
+      <div className="bg-white rounded-xl p-6 shadow-lg">
+        <h2 className="text-2xl font-bold text-blue-900 mb-4 flex items-center gap-2">
+          <Target className="text-orange-500" /> Mercato Target
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-green-50 rounded-lg p-4 border-t-4 border-green-500">
+            <div className="text-2xl font-bold text-green-700">40%</div>
+            <div className="font-bold text-gray-800">Agricoltura</div>
+            <p className="text-sm text-gray-600 mt-2">Sensori umidità, meteo, irrigazione smart</p>
+          </div>
+          <div className="bg-blue-50 rounded-lg p-4 border-t-4 border-blue-500">
+            <div className="text-2xl font-bold text-blue-700">25%</div>
+            <div className="font-bold text-gray-800">Ambiente</div>
+            <p className="text-sm text-gray-600 mt-2">Qualità aria/acqua, incendi, fauna</p>
+          </div>
+          <div className="bg-orange-50 rounded-lg p-4 border-t-4 border-orange-500">
+            <div className="text-2xl font-bold text-orange-700">20%</div>
+            <div className="font-bold text-gray-800">Logistica</div>
+            <p className="text-sm text-gray-600 mt-2">Container, flotte, asset tracking</p>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-4 border-t-4 border-purple-500">
+            <div className="text-2xl font-bold text-purple-700">15%</div>
+            <div className="font-bold text-gray-800">Energy</div>
+            <p className="text-sm text-gray-600 mt-2">Pipeline, reti elettriche, pozzi</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Metriche Chiave Spiegate */}
+      <div className="bg-yellow-50 rounded-xl p-6 border-l-4 border-yellow-500">
+        <h2 className="text-2xl font-bold text-yellow-900 mb-4 flex items-center gap-2">
+          <BookOpen className="text-yellow-600" /> Metriche Chiave Spiegate
+        </h2>
+
+        <div className="space-y-6">
+          {/* CAC */}
+          <div className="bg-white rounded-lg p-4 shadow">
+            <h3 className="font-bold text-lg text-blue-900 flex items-center gap-2">
+              <span className="bg-blue-600 text-white px-2 py-1 rounded text-sm">CAC</span>
+              Customer Acquisition Cost
+            </h3>
+            <p className="mt-2 text-gray-700">
+              <strong>Quanto costa conquistare un nuovo cliente?</strong> Se spendi 10.000€ in marketing e acquisisci
+              500 sensori, il tuo CAC è 10.000€ ÷ 500 = <strong>20€ per sensore</strong>.
+            </p>
+            <p className="mt-2 text-gray-600 text-sm">
+              Include: pubblicità, venditori, fiere, demo, sconti promozionali. Un CAC basso = sei efficiente nel trovare clienti.
+            </p>
+            <div className="mt-2 bg-blue-50 px-3 py-2 rounded text-sm">
+              📊 <strong>Benchmark:</strong> 15-30€ per sensore è considerato buono nel settore.
+            </div>
+          </div>
+
+          {/* Churn */}
+          <div className="bg-white rounded-lg p-4 shadow">
+            <h3 className="font-bold text-lg text-red-900 flex items-center gap-2">
+              <span className="bg-red-600 text-white px-2 py-1 rounded text-sm">CHURN</span>
+              Tasso di Abbandono
+            </h3>
+            <p className="mt-2 text-gray-700">
+              <strong>Quanti clienti perdi ogni mese?</strong> Se hai 1.000 sensori e 20 disdiscono,
+              il churn è 20 ÷ 1.000 = <strong>2% mensile</strong>.
+            </p>
+            <p className="mt-2 text-gray-600 text-sm">
+              ⚠️ Attenzione: 2% mensile = 22% annuale! È come un secchio bucato: se il buco è grosso, non si riempirà mai.
+            </p>
+            <div className="mt-2 flex gap-2 text-sm">
+              <span className="bg-green-100 text-green-800 px-2 py-1 rounded">🟢 &lt;1%: Eccellente</span>
+              <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded">🟡 1-2%: Buono</span>
+              <span className="bg-red-100 text-red-800 px-2 py-1 rounded">🔴 &gt;3%: Problema</span>
+            </div>
+          </div>
+
+          {/* LTV */}
+          <div className="bg-white rounded-lg p-4 shadow">
+            <h3 className="font-bold text-lg text-green-900 flex items-center gap-2">
+              <span className="bg-green-600 text-white px-2 py-1 rounded text-sm">LTV</span>
+              Lifetime Value
+            </h3>
+            <p className="mt-2 text-gray-700">
+              <strong>Quanto vale un cliente durante tutta la sua "vita" con te?</strong> Se paga 3€/mese
+              e resta 50 mesi, LTV = 3€ × 50 = <strong>150€</strong>.
+            </p>
+            <div className="mt-2 bg-gray-100 px-3 py-2 rounded font-mono text-sm">
+              Formula: <strong>LTV = Prezzo Mensile ÷ Churn Mensile</strong><br/>
+              Esempio: 3€ ÷ 0.02 = 150€
+            </div>
+            <p className="mt-2 text-gray-600 text-sm">
+              L'LTV ti dice quanto puoi permetterti di spendere per acquisire un cliente.
+            </p>
+          </div>
+
+          {/* LTV/CAC */}
+          <div className="bg-white rounded-lg p-4 shadow border-2 border-yellow-400">
+            <h3 className="font-bold text-lg text-purple-900 flex items-center gap-2">
+              <span className="bg-purple-600 text-white px-2 py-1 rounded text-sm">LTV/CAC</span>
+              Il Rapporto che Decide Tutto ⭐
+            </h3>
+            <p className="mt-2 text-gray-700">
+              <strong>Quanto VALE un cliente ÷ quanto COSTA acquisirlo.</strong><br/>
+              Se LTV = 150€ e CAC = 20€, allora LTV/CAC = <strong>7.5x</strong>
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+              <div className="bg-red-100 text-red-800 px-3 py-2 rounded">
+                <strong>&lt;1x:</strong> Perdi soldi su ogni cliente! 🔴
+              </div>
+              <div className="bg-yellow-100 text-yellow-800 px-3 py-2 rounded">
+                <strong>1-3x:</strong> Sostenibile ma rischioso 🟡
+              </div>
+              <div className="bg-green-100 text-green-800 px-3 py-2 rounded">
+                <strong>3-5x:</strong> Business sano 🟢
+              </div>
+              <div className="bg-green-200 text-green-900 px-3 py-2 rounded">
+                <strong>&gt;5x:</strong> Ottimo! Puoi crescere di più 🟢🟢
+              </div>
+            </div>
+            <p className="mt-3 text-gray-700 font-medium">
+              💡 <strong>Regola del 3x:</strong> Gli investitori vogliono vedere almeno 3x. Significa che per ogni € speso in acquisizione, ne torneranno almeno 3.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Perché Nanosatelliti */}
+      <div className="bg-white rounded-xl p-6 shadow-lg">
+        <h2 className="text-2xl font-bold text-blue-900 mb-4 flex items-center gap-2">
+          <Satellite className="text-blue-500" /> Perché Nanosatelliti?
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="p-3 bg-gray-100 text-left">Aspetto</th>
+                <th className="p-3 bg-red-100 text-center">Satellite Tradizionale</th>
+                <th className="p-3 bg-green-100 text-center">Nanosatellite (CubeSat)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b">
+                <td className="p-3 font-medium">Costo produzione</td>
+                <td className="p-3 text-center text-red-600 font-bold">50-500 M€</td>
+                <td className="p-3 text-center text-green-600 font-bold">50-100 k€</td>
+              </tr>
+              <tr className="border-b bg-gray-50">
+                <td className="p-3 font-medium">Costo lancio</td>
+                <td className="p-3 text-center text-red-600 font-bold">10-50 M€</td>
+                <td className="p-3 text-center text-green-600 font-bold">10-30 k€</td>
+              </tr>
+              <tr className="border-b">
+                <td className="p-3 font-medium">Tempo sviluppo</td>
+                <td className="p-3 text-center text-red-600">3-5 anni</td>
+                <td className="p-3 text-center text-green-600">6-18 mesi</td>
+              </tr>
+              <tr className="border-b bg-gray-50">
+                <td className="p-3 font-medium">Vita utile</td>
+                <td className="p-3 text-center">10-15 anni</td>
+                <td className="p-3 text-center">2-5 anni</td>
+              </tr>
+              <tr>
+                <td className="p-3 font-medium">Rischio</td>
+                <td className="p-3 text-center text-red-600">Altissimo (tutto su uno)</td>
+                <td className="p-3 text-center text-green-600">Distribuito (costellazione)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-4 text-gray-700 bg-blue-50 p-3 rounded">
+          💡 <strong>Vantaggio chiave:</strong> Possiamo lanciare, testare, iterare velocemente. Se un satellite fallisce, ne lanciamo un altro.
+        </p>
+      </div>
+
+      {/* CTA */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 text-white text-center">
+        <h2 className="text-2xl font-bold mb-3">Pronto a Esplorare i Numeri?</h2>
+        <p className="text-blue-100 mb-6">Vai alla Dashboard per vedere le proiezioni finanziarie complete</p>
+        <button
+          onClick={() => setActiveSheet('DASHBOARD')}
+          className="bg-white text-blue-800 px-8 py-3 rounded-lg font-bold hover:bg-blue-50 transition"
+        >
+          📊 Vai alla Dashboard
+        </button>
+      </div>
+    </div>
+  );
+
   // DASHBOARD
   const renderDashboard = () => (
     <div className="space-y-4 p-4">
@@ -1181,6 +1479,7 @@ export default function NanoSatDashboard() {
   // Render sheet
   const renderSheet = () => {
     switch (activeSheet) {
+      case 'IL_PROGETTO': return renderProgetto();
       case 'DASHBOARD': return renderDashboard();
       case 'SIMULATORE': return renderSimulator();
       case 'SCENARI': return renderScenari();
@@ -1514,7 +1813,7 @@ export default function NanoSatDashboard() {
     </div>
   );
 
-  const sheets = ['DASHBOARD', 'SIMULATORE', 'SCENARI', 'ASSUMPTIONS', 'MERCATO', 'RICAVI', 'COSTI', 'CONTO_ECONOMICO', 'STATO_PATRIMONIALE', 'CASH_FLOW', 'KPI_CLASSICI', 'KPI_AVANZATI', 'VALUATION', 'SENSITIVITY'];
+  const sheets = ['IL_PROGETTO', 'DASHBOARD', 'SIMULATORE', 'SCENARI', 'ASSUMPTIONS', 'MERCATO', 'RICAVI', 'COSTI', 'CONTO_ECONOMICO', 'STATO_PATRIMONIALE', 'CASH_FLOW', 'KPI_CLASSICI', 'KPI_AVANZATI', 'VALUATION', 'SENSITIVITY'];
 
   return (
     <div className="min-h-screen bg-gray-100">
