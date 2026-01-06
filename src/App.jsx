@@ -351,8 +351,8 @@ export default function NanoSatBusinessPlanApp() {
   };
 
   const WizardInputRow = ({ label, values, inputKey, unit = '€', step = 1, help }) => (
-    <div className="mb-4">
-      <div className="flex items-center gap-2 mb-2">
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
         <label className="font-medium text-gray-700">{label}</label>
         {help && (
           <button onClick={() => setExpandedHelp(prev => ({ ...prev, [inputKey]: !prev[inputKey] }))} className="text-blue-500 hover:text-blue-700">
@@ -362,21 +362,23 @@ export default function NanoSatBusinessPlanApp() {
       </div>
       <div className="grid grid-cols-3 gap-4">
         {[0, 1, 2].map(y => (
-          <div key={y} className="relative">
-            <span className="absolute -top-5 left-0 text-xs text-gray-500">Anno {y + 1}</span>
-            <input
-              type="number"
-              value={values[y]}
-              onChange={(e) => updateInput(inputKey, y, parseFloat(e.target.value) || 0)}
-              step={step}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right font-medium"
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">{unit}</span>
+          <div key={y}>
+            <div className="text-xs text-gray-500 mb-1 font-medium">Anno {y + 1}</div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={values[y]}
+                onChange={(e) => updateInput(inputKey, y, parseFloat(e.target.value) || 0)}
+                step={step}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right font-medium"
+              />
+              <span className="text-gray-500 text-sm whitespace-nowrap min-w-[50px]">{unit}</span>
+            </div>
           </div>
         ))}
       </div>
       {expandedHelp[inputKey] && help && (
-        <div className="mt-2 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">{help}</div>
+        <div className="mt-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">{help}</div>
       )}
     </div>
   );
