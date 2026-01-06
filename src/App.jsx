@@ -2,11 +2,72 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis } from 'recharts';
 import { Satellite, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Info, Lightbulb, Sliders, BookOpen, Target, ArrowUpRight, ArrowDownRight, HelpCircle, ChevronRight, ChevronLeft, Check, LayoutDashboard, Compass } from 'lucide-react';
 
-// Scenari
+// Scenari - v2 con clienti e sensori separati
 const SCENARI = {
-  1: { name: 'WORST', sensori: [2500, 10000, 35000], prezzo: [3.0, 2.5, 2.0], churn: 0.03, satelliti: [2, 4, 6], costoSat: [100000, 90000, 80000], costoLancio: 20000, fte: [6, 10, 16], ral: 48000, cac: [35, 28, 22], seed: 300000, seriesA: 1000000, grants: 300000 },
-  2: { name: 'MEDIUM', sensori: [5000, 25000, 100000], prezzo: [3.5, 3.0, 2.5], churn: 0.02, satelliti: [4, 8, 12], costoSat: [80000, 70000, 60000], costoLancio: 15000, fte: [9, 17, 27], ral: 50000, cac: [25, 20, 15], seed: 500000, seriesA: 2000000, grants: 650000 },
-  3: { name: 'BEST', sensori: [8000, 45000, 200000], prezzo: [4.0, 3.5, 3.0], churn: 0.01, satelliti: [6, 14, 24], costoSat: [70000, 60000, 50000], costoLancio: 12000, fte: [12, 25, 40], ral: 52000, cac: [18, 14, 10], seed: 800000, seriesA: 3500000, grants: 1000000 }
+  1: {
+    name: 'WORST',
+    // Clienti e sensori
+    numClienti: [50, 100, 175],
+    sensoriPerCliente: [50, 100, 200],
+    // sensoriTotali: [2500, 10000, 35000] - calcolato
+    prezzo: [3.0, 2.5, 2.0],
+    churn: 0.03,
+    // Infrastruttura
+    satelliti: [2, 4, 6],
+    costoSat: [100000, 90000, 80000],
+    costoLancio: 20000,
+    capacitaSatellite: 5000,
+    // Team e costi
+    fte: [6, 10, 16],
+    ral: 48000,
+    cac: [35, 28, 22],
+    marketingBudget: [40000, 80000, 120000],
+    salesBudget: [25000, 50000, 80000],
+    // Funding
+    seed: 300000,
+    seriesA: 1000000,
+    grants: 300000
+  },
+  2: {
+    name: 'MEDIUM',
+    numClienti: [100, 250, 500],
+    sensoriPerCliente: [50, 100, 200],
+    // sensoriTotali: [5000, 25000, 100000] - calcolato
+    prezzo: [3.5, 3.0, 2.5],
+    churn: 0.02,
+    satelliti: [4, 8, 12],
+    costoSat: [80000, 70000, 60000],
+    costoLancio: 15000,
+    capacitaSatellite: 5000,
+    fte: [9, 17, 27],
+    ral: 50000,
+    cac: [25, 20, 15],
+    marketingBudget: [50000, 100000, 150000],
+    salesBudget: [30000, 60000, 100000],
+    seed: 500000,
+    seriesA: 2000000,
+    grants: 650000
+  },
+  3: {
+    name: 'BEST',
+    numClienti: [160, 450, 1000],
+    sensoriPerCliente: [50, 100, 200],
+    // sensoriTotali: [8000, 45000, 200000] - calcolato
+    prezzo: [4.0, 3.5, 3.0],
+    churn: 0.01,
+    satelliti: [6, 14, 24],
+    costoSat: [70000, 60000, 50000],
+    costoLancio: 12000,
+    capacitaSatellite: 5000,
+    fte: [12, 25, 40],
+    ral: 52000,
+    cac: [18, 14, 10],
+    marketingBudget: [80000, 150000, 250000],
+    salesBudget: [50000, 100000, 180000],
+    seed: 800000,
+    seriesA: 3500000,
+    grants: 1000000
+  }
 };
 
 // Descrizioni KPI complete
@@ -171,36 +232,167 @@ export default function NanoSatDashboard() {
   const [wizardStep, setWizardStep] = useState(1);
   const [expandedHelp, setExpandedHelp] = useState({});
 
-  // INPUTS
+  // Modalità inserimento: 'direct' | 'yoy' | 'benchmark'
+  const [inputModes, setInputModes] = useState({
+    numClienti: 'direct',
+    sensoriPerCliente: 'direct',
+    prezzo: 'direct',
+    churn: 'direct',
+    cac: 'direct',
+    fte: 'direct',
+    costoSat: 'direct',
+    satelliti: 'auto', // 'auto' | 'manual'
+  });
+
+  // Benchmark di mercato (riferimenti)
+  const BENCHMARK = {
+    prezzoMercato: 12, // €/sensore/mese (media Iridium, Globalstar, Starlink)
+    churnMercato: 0.03, // 3% mensile
+    cacMercato: 50, // €/cliente
+    grossMarginMercato: 0.60, // 60%
+    competitors: [
+      { name: 'Iridium', prezzo: 15 },
+      { name: 'Globalstar', prezzo: 12 },
+      { name: 'Starlink IoT', prezzo: 8 },
+      { name: 'Swarm/SpaceX', prezzo: 5 },
+    ]
+  };
+
+  // INPUTS - Struttura aggiornata v2
   const [inputs, setInputs] = useState({
-    satelliti: [4, 8, 12], costoSat: [80000, 70000, 60000], costoLancio: [15000, 15000, 15000], vitaSatellite: [3, 3, 3],
-    sensori: [5000, 25000, 100000], prezzo: [3.5, 3.0, 2.5], churn: [0.02, 0.02, 0.02], cac: [25, 20, 15],
-    fte: [9, 17, 27], ral: [50000, 50000, 50000], welfare: [0.15, 0.15, 0.15],
-    affitto: [3000, 5000, 8000], groundStation: [5000, 8000, 12000], cloudIT: [2000, 4000, 8000],
-    licenze: [50000, 30000, 30000], assicurazione: [25000, 40000, 60000], legal: [30000, 25000, 20000],
-    rnd: [100000, 80000, 60000], marketing: [50000, 100000, 150000], travel: [20000, 35000, 50000],
-    capitaleFounders: [200000, 0, 0], seed: [500000, 0, 0], seriesA: [0, 2000000, 0], grants: [195000, 260000, 195000],
-    premiumPct: [0.05, 0.10, 0.15], premiumExtra: [50, 45, 40], hardwarePct: [0.30, 0.25, 0.20], hardwareMargin: [80, 70, 60],
-    revenueMultiple: [8, 8, 8], arrMultiple: [10, 12.5, 15], wacc: [0.25, 0.22, 0.20], terminalGrowth: [0.03, 0.03, 0.03],
+    // === CLIENTI E SENSORI ===
+    numClienti: [100, 250, 500],           // Numero clienti per anno
+    sensoriPerCliente: [50, 100, 200],     // Media sensori per cliente
+    crescitaClientiYoY: 1.5,               // +150% YoY (per modalità YoY)
+    crescitaSensoriYoY: 0.5,               // +50% YoY sensori/cliente
+    // sensoriTotali = numClienti × sensoriPerCliente (CALCOLATO)
+
+    // === PRICING ===
+    prezzo: [3.5, 3.0, 2.5],               // Canone €/sensore/mese
+    scontoBenchmark: -0.70,                // -70% vs benchmark (per modalità benchmark)
+    prezzoYoY: -0.10,                      // -10% YoY (per modalità YoY)
+    premiumPct: [0.05, 0.10, 0.15],        // % clienti premium
+    premiumExtra: [50, 45, 40],            // € extra/mese per premium
+    hardwarePct: [0.30, 0.25, 0.20],       // % clienti che comprano hardware
+    hardwareMargin: [80, 70, 60],          // € margine hardware
+
+    // === CHURN ===
+    churn: [0.02, 0.02, 0.02],             // Churn mensile
+    churnYoY: 0,                           // Variazione YoY (0 = stabile)
+
+    // === INFRASTRUTTURA SATELLITI ===
+    // Parametri per calcolo automatico
+    capacitaSatellite: 5000,               // Sensori gestibili per satellite
+    fattoreRidondanza: 1.5,                // 1.0 min, 1.5 consigliato, 2.0 sicuro
+    coperturaTarget: 0.30,                 // 30% superficie terrestre
+    latenzaMax: 6,                         // ore max latenza accettabile
+    // Override manuale (se modalità manual)
+    satelliti: [4, 8, 12],                 // Numero satelliti per anno
+    costoSat: [80000, 70000, 60000],       // Costo produzione €/satellite
+    costoLancio: [15000, 15000, 15000],    // Costo lancio €/satellite
+    vitaSatellite: [3, 3, 3],              // Anni vita utile
+    riduzioneCapexYoY: 0.10,               // -10% YoY (learning curve)
+
+    // === COSTI ACQUISIZIONE (CAC) ===
+    marketingBudget: [50000, 100000, 150000],  // Budget marketing annuo
+    salesBudget: [30000, 60000, 100000],       // Budget vendite annuo
+    cac: [25, 20, 15],                         // CAC unitario (€/cliente) - override o calcolato
+    cacYoY: -0.15,                             // -15% YoY (efficienza)
+
+    // === PERSONALE ===
+    fte: [9, 17, 27],                      // FTE totali
+    fteEngineering: [5, 9, 14],            // di cui Engineering
+    fteSales: [2, 4, 7],                   // di cui Sales
+    fteOps: [1, 2, 3],                     // di cui Operations
+    fteGA: [1, 2, 3],                      // di cui G&A
+    ral: [50000, 50000, 50000],            // RAL media
+    welfare: [0.15, 0.15, 0.15],           // Welfare %
+    crescitaFteYoY: 0.50,                  // +50% YoY team
+
+    // === OPEX ===
+    affitto: [3000, 5000, 8000],           // €/mese
+    groundStation: [5000, 8000, 12000],    // €/mese
+    cloudIT: [2000, 4000, 8000],           // €/mese
+    licenze: [50000, 30000, 30000],        // €/anno (frequenze, software)
+    assicurazione: [25000, 40000, 60000],  // €/anno
+    legal: [30000, 25000, 20000],          // €/anno
+    rnd: [100000, 80000, 60000],           // €/anno (R&D extra)
+    travel: [20000, 35000, 50000],         // €/anno
+    altroOpex: [10000, 15000, 20000],      // €/anno
+    crescitaOpexYoY: 0.20,                 // +20% YoY
+
+    // === COGS (Costi Diretti) ===
+    costoBandaSensore: [0.10, 0.08, 0.06], // €/sensore/mese (trasmissione)
+    costoCloudSensore: [0.05, 0.04, 0.03], // €/sensore/mese (storage/compute)
+    costoSupportCliente: [5, 4, 3],        // €/cliente/mese
+
+    // === FINANZIAMENTI ===
+    capitaleFounders: [200000, 0, 0],
+    seed: [500000, 0, 0],
+    seriesA: [0, 2000000, 0],
+    grants: [195000, 260000, 195000],
+
+    // === VALUATION ===
+    revenueMultiple: [8, 8, 8],
+    arrMultiple: [10, 12.5, 15],
+    wacc: [0.25, 0.22, 0.20],
+    terminalGrowth: [0.03, 0.03, 0.03],
+
+    // === ALTRI ===
     attrezzature: [50000, 30000, 40000],
-    ggIncasso: [30, 30, 30], ggPagamento: [60, 60, 60]
+    ggIncasso: [30, 30, 30],
+    ggPagamento: [60, 60, 60]
   });
 
   const loadScenario = (id) => {
     const s = SCENARI[id];
     setInputs(prev => ({
-      ...prev, sensori: [...s.sensori], prezzo: [...s.prezzo], churn: [s.churn, s.churn, s.churn],
-      satelliti: [...s.satelliti], costoSat: [...s.costoSat], costoLancio: [s.costoLancio, s.costoLancio, s.costoLancio],
-      fte: [...s.fte], ral: [s.ral, s.ral, s.ral], cac: [...s.cac],
-      seed: [s.seed, 0, 0], seriesA: [0, s.seriesA, 0], grants: [s.grants * 0.3, s.grants * 0.4, s.grants * 0.3]
+      ...prev,
+      // Clienti e sensori
+      numClienti: [...s.numClienti],
+      sensoriPerCliente: [...s.sensoriPerCliente],
+      // Pricing
+      prezzo: [...s.prezzo],
+      churn: [s.churn, s.churn, s.churn],
+      // Infrastruttura
+      satelliti: [...s.satelliti],
+      costoSat: [...s.costoSat],
+      costoLancio: [s.costoLancio, s.costoLancio, s.costoLancio],
+      capacitaSatellite: s.capacitaSatellite,
+      // Team e costi
+      fte: [...s.fte],
+      ral: [s.ral, s.ral, s.ral],
+      cac: [...s.cac],
+      marketingBudget: [...s.marketingBudget],
+      salesBudget: [...s.salesBudget],
+      // Funding
+      seed: [s.seed, 0, 0],
+      seriesA: [0, s.seriesA, 0],
+      grants: [s.grants * 0.3, s.grants * 0.4, s.grants * 0.3]
     }));
     setScenarioId(id);
   };
 
+  // Aggiorna input - supporta array e scalari
   const updateInput = (key, yearIndex, value) => {
-    const percentKeys = ['churn', 'welfare', 'premiumPct', 'hardwarePct', 'wacc', 'terminalGrowth'];
+    const percentKeys = ['churn', 'welfare', 'premiumPct', 'hardwarePct', 'wacc', 'terminalGrowth',
+                         'coperturaTarget', 'scontoBenchmark', 'prezzoYoY', 'churnYoY', 'cacYoY',
+                         'riduzioneCapexYoY', 'crescitaFteYoY', 'crescitaOpexYoY', 'crescitaClientiYoY', 'crescitaSensoriYoY'];
     const actualValue = percentKeys.includes(key) ? value / 100 : value;
-    setInputs(prev => ({ ...prev, [key]: prev[key].map((v, idx) => idx === yearIndex ? actualValue : v) }));
+
+    setInputs(prev => {
+      // Se il campo è un array, aggiorna l'elemento specifico
+      if (Array.isArray(prev[key])) {
+        return { ...prev, [key]: prev[key].map((v, idx) => idx === yearIndex ? actualValue : v) };
+      }
+      // Se è uno scalare, aggiorna direttamente
+      return { ...prev, [key]: actualValue };
+    });
+  };
+
+  // Aggiorna modalità inserimento
+  const updateInputMode = (key, mode) => {
+    setInputModes(prev => ({ ...prev, [key]: mode }));
   };
 
   // localStorage persistence
@@ -222,40 +414,137 @@ export default function NanoSatDashboard() {
   // ═══════════════════════════════════════════════════════════════
   const calc = useMemo(() => {
     const i = inputs;
-    
-    // 1. RICAVI
+    const modes = inputModes;
+
+    // ═══════════════════════════════════════════════════════════════
+    // 0. CLIENTI E SENSORI (NUOVO)
+    // ═══════════════════════════════════════════════════════════════
+    const numClienti = [...i.numClienti];
+    const sensoriPerCliente = [...i.sensoriPerCliente];
+
+    // Calcolo sensori totali = clienti × sensori/cliente
+    const sensoriTarget = numClienti.map((c, y) => c * sensoriPerCliente[y]);
+
+    // Clienti: inizio, nuovi, churn, fine
+    const clientiInizio = [0, 0, 0];
+    const clientiNuovi = [0, 0, 0];
+    const clientiChurn = [0, 0, 0];
+    const clientiFine = [0, 0, 0];
+    const clientiMedi = [0, 0, 0];
+
+    for (let y = 0; y < 3; y++) {
+      clientiInizio[y] = y === 0 ? 0 : clientiFine[y-1];
+      clientiNuovi[y] = Math.max(0, numClienti[y] - clientiInizio[y] + Math.round(clientiInizio[y] * i.churn[y] * 12));
+      clientiChurn[y] = Math.round(clientiInizio[y] * i.churn[y] * 12);
+      clientiFine[y] = Math.max(0, clientiInizio[y] + clientiNuovi[y] - clientiChurn[y]);
+      clientiMedi[y] = (clientiInizio[y] + clientiFine[y]) / 2;
+    }
+
+    // Sensori: basati sui clienti
     const sensoriInizio = [0, 0, 0];
     const sensoriNuovi = [0, 0, 0];
     const sensoriChurn = [0, 0, 0];
     const sensoriFine = [0, 0, 0];
     const sensoriMedi = [0, 0, 0];
-    
+
     for (let y = 0; y < 3; y++) {
       sensoriInizio[y] = y === 0 ? 0 : sensoriFine[y-1];
-      sensoriNuovi[y] = Math.max(0, i.sensori[y] - sensoriInizio[y]);
+      const targetFine = sensoriTarget[y];
+      sensoriNuovi[y] = Math.max(0, targetFine - sensoriInizio[y] + Math.round(sensoriInizio[y] * i.churn[y] * 12));
       sensoriChurn[y] = Math.round(sensoriInizio[y] * i.churn[y] * 12);
       sensoriFine[y] = Math.max(0, sensoriInizio[y] + sensoriNuovi[y] - sensoriChurn[y]);
       sensoriMedi[y] = (sensoriInizio[y] + sensoriFine[y]) / 2;
     }
-    
+
+    // ═══════════════════════════════════════════════════════════════
+    // 1. ARPU (Average Revenue Per User) - NUOVO
+    // ═══════════════════════════════════════════════════════════════
+    // ARPU mensile = (sensori/cliente × canone) + premium + hardware (ammortizzato)
+    const arpuBase = sensoriPerCliente.map((s, y) => s * i.prezzo[y]);
+    const arpuPremium = sensoriPerCliente.map((s, y) => s * i.premiumPct[y] * (i.premiumExtra[y] / s));
+    const arpuHardware = sensoriPerCliente.map((s, y) => s * i.hardwarePct[y] * (i.hardwareMargin[y] / 12 / s));
+    const arpuMensile = arpuBase.map((a, y) => a + (arpuPremium[y] || 0) + (arpuHardware[y] || 0));
+    const arpuAnnuale = arpuMensile.map(a => a * 12);
+
+    // ═══════════════════════════════════════════════════════════════
+    // 2. INFRASTRUTTURA SATELLITI (CALCOLO AUTOMATICO) - NUOVO
+    // ═══════════════════════════════════════════════════════════════
+    // Satelliti necessari per capacità
+    const satellitiCapacita = sensoriFine.map(s =>
+      Math.ceil(s / i.capacitaSatellite * i.fattoreRidondanza)
+    );
+
+    // Satelliti necessari per copertura (formula semplificata LEO)
+    // Un satellite LEO a 500km "vede" ~3% della superficie
+    const coperturaPerSat = 0.03;
+    const satellitiCopertura = Math.ceil(
+      (i.coperturaTarget / coperturaPerSat) * (24 / i.latenzaMax)
+    );
+
+    // Satelliti necessari = MAX(capacità, copertura)
+    const satellitiNecessari = satellitiCapacita.map(s =>
+      Math.max(s, satellitiCopertura)
+    );
+
+    // Usa valore calcolato o manuale in base a modalità
+    const satellitiEffettivi = modes.satelliti === 'auto'
+      ? satellitiNecessari
+      : i.satelliti;
+
+    // Warning se sottodimensionato
+    const satellitiWarning = satellitiEffettivi.map((s, y) =>
+      s < satellitiNecessari[y]
+    );
+
+    // ═══════════════════════════════════════════════════════════════
+    // 3. RICAVI
+    // ═══════════════════════════════════════════════════════════════
     const ricaviSub = sensoriMedi.map((s, y) => s * i.prezzo[y] * 12);
     const ricaviPremium = sensoriMedi.map((s, y) => s * i.premiumPct[y] * i.premiumExtra[y] * 12);
     const ricaviHardware = sensoriNuovi.map((s, y) => s * i.hardwarePct[y] * i.hardwareMargin[y]);
     const ricaviTotali = [0, 1, 2].map(y => ricaviSub[y] + ricaviPremium[y] + ricaviHardware[y]);
-    const crescitaYoY = [0, ricaviTotali[0] > 0 ? (ricaviTotali[1] - ricaviTotali[0]) / ricaviTotali[0] : 0, 
+    const crescitaYoY = [0, ricaviTotali[0] > 0 ? (ricaviTotali[1] - ricaviTotali[0]) / ricaviTotali[0] : 0,
                            ricaviTotali[1] > 0 ? (ricaviTotali[2] - ricaviTotali[1]) / ricaviTotali[1] : 0];
 
-    // 2. COSTI OPERATIVI
-    const costoPersonale = i.fte.map((f, y) => f * i.ral[y] * (1 + i.welfare[y]));
+    // ARPU effettivo (calcolato dai ricavi)
+    const arpuEffettivo = clientiMedi.map((c, y) => c > 0 ? ricaviTotali[y] / 12 / c : 0);
+
+    // ═══════════════════════════════════════════════════════════════
+    // 4. COGS (Costi Diretti per Servizio) - NUOVO
+    // ═══════════════════════════════════════════════════════════════
+    const costoBandaTotale = sensoriMedi.map((s, y) => s * i.costoBandaSensore[y] * 12);
+    const costoCloudTotale = sensoriMedi.map((s, y) => s * i.costoCloudSensore[y] * 12);
+    const costoSupportTotale = clientiMedi.map((c, y) => c * i.costoSupportCliente[y] * 12);
+    const cogsTotale = [0, 1, 2].map(y =>
+      costoBandaTotale[y] + costoCloudTotale[y] + costoSupportTotale[y]
+    );
+
+    // ═══════════════════════════════════════════════════════════════
+    // 5. COSTI OPERATIVI
+    // ═══════════════════════════════════════════════════════════════
+    const costoPersonale = i.fte.map((f, y) => f * i.ral[y] * (1 + i.welfare[y]) * 1.4); // +40% contributi
     const affittoAnnuo = i.affitto.map(x => x * 12);
     const groundAnnuo = i.groundStation.map(x => x * 12);
     const cloudAnnuo = i.cloudIT.map(x => x * 12);
-    const altriOpex = [0, 1, 2].map(y => i.licenze[y] + i.assicurazione[y] + i.legal[y] + i.rnd[y] + i.marketing[y] + i.travel[y]);
-    const opexTotale = [0, 1, 2].map(y => affittoAnnuo[y] + groundAnnuo[y] + cloudAnnuo[y] + altriOpex[y]);
-    const cacTotale = sensoriNuovi.map((s, y) => s * i.cac[y]);
+    const altriOpex = [0, 1, 2].map(y =>
+      i.licenze[y] + i.assicurazione[y] + i.legal[y] + i.rnd[y] + i.travel[y] + (i.altroOpex?.[y] || 0)
+    );
+    const opexTotale = [0, 1, 2].map(y =>
+      affittoAnnuo[y] + groundAnnuo[y] + cloudAnnuo[y] + altriOpex[y]
+    );
 
-    // 3. CAPEX E AMMORTAMENTI
-    const capexSatelliti = i.satelliti.map((s, y) => s * (i.costoSat[y] + i.costoLancio[y]));
+    // CAC totale (calcolato o da budget)
+    const cacCalcolato = clientiNuovi.map((c, y) =>
+      c > 0 ? (i.marketingBudget[y] + i.salesBudget[y]) / c : 0
+    );
+    const cacUnitario = i.cac; // può essere override
+    const cacTotale = clientiNuovi.map((c, y) => c * cacUnitario[y]);
+    const marketingSalesBudget = [0, 1, 2].map(y => i.marketingBudget[y] + i.salesBudget[y]);
+
+    // ═══════════════════════════════════════════════════════════════
+    // 6. CAPEX E AMMORTAMENTI
+    // ═══════════════════════════════════════════════════════════════
+    const capexSatelliti = satellitiEffettivi.map((s, y) => s * (i.costoSat[y] + i.costoLancio[y]));
     const capexAttrezzature = [...i.attrezzature];
     const capexTotale = capexSatelliti.map((c, y) => c + capexAttrezzature[y]);
     
@@ -271,12 +560,17 @@ export default function NanoSatDashboard() {
     ];
     const ammTotaleAnno = ammSatellitiAnno.map((a, y) => a + ammAttrezzAnno[y]);
 
-    // 4. CONTO ECONOMICO
-    const costiDiretti = groundAnnuo.map((g, y) => g + cloudAnnuo[y]);
+    // ═══════════════════════════════════════════════════════════════
+    // 7. CONTO ECONOMICO
+    // ═══════════════════════════════════════════════════════════════
+    // Costi diretti = COGS (banda, cloud, support) + ground station operations
+    const costiDiretti = cogsTotale.map((c, y) => c + groundAnnuo[y]);
     const margineLordo = ricaviTotali.map((r, y) => r - costiDiretti[y]);
     const margineLordoPct = ricaviTotali.map((r, y) => r > 0 ? margineLordo[y] / r : 0);
-    
-    const totCostiOperativi = [0, 1, 2].map(y => costoPersonale[y] + opexTotale[y] - costiDiretti[y] + cacTotale[y]);
+
+    const totCostiOperativi = [0, 1, 2].map(y =>
+      costoPersonale[y] + opexTotale[y] - groundAnnuo[y] + marketingSalesBudget[y]
+    );
     const ebitda = margineLordo.map((m, y) => m - totCostiOperativi[y]);
     const ebitdaPct = ricaviTotali.map((r, y) => r > 0 ? ebitda[y] / r : 0);
     
@@ -336,22 +630,42 @@ export default function NanoSatDashboard() {
     const totalePassivoPN = totalePassivoCorr.map((p, y) => p + totalePN[y]);
     const verificaSP = totaleAttivo.map((a, y) => Math.round((a - totalePassivoPN[y]) * 100) / 100);
 
-    // 9. KPI
+    // ═══════════════════════════════════════════════════════════════
+    // 10. KPI
+    // ═══════════════════════════════════════════════════════════════
     const mrr = sensoriMedi.map((s, y) => s * i.prezzo[y]);
     const arr = mrr.map(m => m * 12);
     const churnAnnuo = i.churn.map(c => 1 - Math.pow(1 - c, 12));
-    const ltv = i.prezzo.map((p, y) => i.churn[y] > 0 ? p / i.churn[y] : p * 36);
-    const ltvCac = ltv.map((l, y) => i.cac[y] > 0 ? l / i.cac[y] : 0);
-    const cacPayback = i.prezzo.map((p, y) => p > 0 ? i.cac[y] / p : 0);
+
+    // LTV basato su ARPU cliente (non solo prezzo sensore)
+    const ltvSensore = i.prezzo.map((p, y) => i.churn[y] > 0 ? p / i.churn[y] : p * 36);
+    const ltvCliente = arpuMensile.map((a, y) => i.churn[y] > 0 ? a / i.churn[y] : a * 36);
+    const ltv = ltvSensore; // retrocompatibilità
+
+    // LTV/CAC (basato su clienti)
+    const ltvCacCliente = ltvCliente.map((l, y) => cacUnitario[y] > 0 ? l / cacUnitario[y] : 0);
+    const ltvCac = ltvSensore.map((l, y) => i.cac[y] > 0 ? l / i.cac[y] : 0); // retrocompatibilità
+
+    // CAC Payback (mesi per recuperare CAC)
+    const cacPaybackCliente = arpuMensile.map((a, y) => a > 0 ? cacUnitario[y] / a : 0);
+    const cacPayback = i.prezzo.map((p, y) => p > 0 ? i.cac[y] / p : 0); // retrocompatibilità
+
     const rule40 = [ebitdaPct[0] * 100, crescitaYoY[1] * 100 + ebitdaPct[1] * 100, crescitaYoY[2] * 100 + ebitdaPct[2] * 100];
     const fcf = cfOperativo.map((o, y) => o + cfInvestimenti[y]);
     const runway = ebitda.map((e, y) => e < 0 && cassaFine[y] > 0 ? cassaFine[y] / (-e / 12) : 99);
     const breakeven = margineLordoPct.map((m, y) => m > 0 ? totCostiOperativi[y] / m : 0);
     const breakevenOk = ricaviTotali.map((r, y) => r >= breakeven[y]);
     const revPerEmployee = ricaviTotali.map((r, y) => i.fte[y] > 0 ? r / i.fte[y] : 0);
-    const satTotali = [i.satelliti[0], i.satelliti[0] + i.satelliti[1], i.satelliti[0] + i.satelliti[1] + i.satelliti[2]];
+
+    // Usa satelliti effettivi
+    const satTotali = [
+      satellitiEffettivi[0],
+      satellitiEffettivi[0] + satellitiEffettivi[1],
+      satellitiEffettivi[0] + satellitiEffettivi[1] + satellitiEffettivi[2]
+    ];
     const revPerSat = ricaviTotali.map((r, y) => satTotali[y] > 0 ? r / satTotali[y] : 0);
     const costoPerSensore = sensoriFine.map((s, y) => s > 0 ? (costoPersonale[y] + opexTotale[y]) / s : 0);
+    const costoPerCliente = clientiFine.map((c, y) => c > 0 ? (costoPersonale[y] + opexTotale[y]) / c : 0);
 
     // 10. VALUTAZIONE
     const valRevMultiple = ricaviTotali.map((r, y) => r * i.revenueMultiple[y]);
@@ -368,22 +682,46 @@ export default function NanoSatDashboard() {
     });
 
     return {
+      // Clienti (NUOVO)
+      numClienti, sensoriPerCliente, sensoriTarget,
+      clientiInizio, clientiNuovi, clientiChurn, clientiFine, clientiMedi,
+      // Sensori
       sensoriInizio, sensoriNuovi, sensoriChurn, sensoriFine, sensoriMedi,
+      // ARPU (NUOVO)
+      arpuBase, arpuPremium, arpuHardware, arpuMensile, arpuAnnuale, arpuEffettivo,
+      // Satelliti (NUOVO)
+      satellitiCapacita, satellitiCopertura, satellitiNecessari, satellitiEffettivi, satellitiWarning,
+      // COGS (NUOVO)
+      costoBandaTotale, costoCloudTotale, costoSupportTotale, cogsTotale,
+      // Ricavi
       ricaviSub, ricaviPremium, ricaviHardware, ricaviTotali, crescitaYoY,
-      costoPersonale, affittoAnnuo, groundAnnuo, cloudAnnuo, altriOpex, opexTotale, cacTotale,
+      // Costi operativi
+      costoPersonale, affittoAnnuo, groundAnnuo, cloudAnnuo, altriOpex, opexTotale,
+      cacCalcolato, cacUnitario, cacTotale, marketingSalesBudget,
+      // CAPEX
       capexSatelliti, capexAttrezzature, capexTotale, ammSatellitiAnno, ammAttrezzAnno, ammTotaleAnno,
-      costiDiretti, margineLordo, margineLordoPct, totCostiOperativi, ebitda, ebitdaPct, ebit, ebitPct, imposteCompetenza, utileNetto, utilePct,
+      // Conto Economico
+      costiDiretti, margineLordo, margineLordoPct, totCostiOperativi,
+      ebitda, ebitdaPct, ebit, ebitPct, imposteCompetenza, utileNetto, utilePct,
+      // Stato Patrimoniale
       immobLordo, fondoAmmCumulato, immobNetto,
       creditiCommInizio, creditiComm, deltaCrediti,
       debitiCommInizio, debitiComm, deltaDebitiComm,
       debitiTribInizio, debitiTrib, deltaDebitiTrib,
       totaleCircolante, totaleAttivo, totalePassivoCorr,
       finanziamentiAnno, pnVersamenti, pnUtiliCumulati, totalePN, totalePassivoPN, verificaSP,
+      // Cash Flow
       cfOperativo, cfInvestimenti, cfFinanziario, flussoNetto, cassaInizio, cassaFine,
-      mrr, arr, churnAnnuo, ltv, ltvCac, cacPayback, rule40, fcf, runway, breakeven, breakevenOk, revPerEmployee, satTotali, revPerSat, costoPerSensore,
+      // KPI
+      mrr, arr, churnAnnuo,
+      ltvSensore, ltvCliente, ltv, ltvCacCliente, ltvCac,
+      cacPaybackCliente, cacPayback,
+      rule40, fcf, runway, breakeven, breakevenOk,
+      revPerEmployee, satTotali, revPerSat, costoPerSensore, costoPerCliente,
+      // Valutazione
       valRevMultiple, valArrMultiple, valDcf, valMedia, terminalValue, pvFcf, pvTerminal, discountFactor, diluizioneFounders
     };
-  }, [inputs]);
+  }, [inputs, inputModes]);
 
   // Track impacts
   useEffect(() => {
@@ -1558,12 +1896,12 @@ export default function NanoSatDashboard() {
   // ═══════════════════════════════════════════════════════════════
 
   const WIZARD_STEPS = [
-    { id: 1, title: 'Il Tuo Progetto', subtitle: 'Scegli il punto di partenza' },
-    { id: 2, title: 'Il Mercato', subtitle: 'Sensori, prezzi e churn' },
-    { id: 3, title: 'L\'Infrastruttura', subtitle: 'Satelliti e costi' },
-    { id: 4, title: 'Acquisizione Clienti', subtitle: 'CAC e strategia' },
-    { id: 5, title: 'Il Team', subtitle: 'Persone e costi' },
-    { id: 6, title: 'I Finanziamenti', subtitle: 'Fonti di funding' }
+    { id: 1, title: 'Scenario Base', subtitle: 'Scegli punto di partenza' },
+    { id: 2, title: 'Clienti e Domanda', subtitle: 'Clienti, sensori, churn' },
+    { id: 3, title: 'Ricavi e Pricing', subtitle: 'Canoni e ARPU' },
+    { id: 4, title: 'Infrastruttura', subtitle: 'Satelliti e capacità' },
+    { id: 5, title: 'Costi', subtitle: 'CAPEX, OPEX, Team' },
+    { id: 6, title: 'Finanziamenti', subtitle: 'Fonti di funding' }
   ];
 
   const WizardProgress = () => (
@@ -1661,88 +1999,220 @@ export default function NanoSatDashboard() {
 
   const renderWizardStep = () => {
     switch (wizardStep) {
+      // STEP 1: SCENARIO BASE
       case 1:
         return (
           <div className="fade-in">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Benvenuto nel Wizard</h2>
-            <p className="text-gray-600 mb-6">Scegli uno scenario di partenza o parti da zero per compilare il tuo business plan.</p>
-            <InfoBox type="tip">Gli scenari preimpostati contengono valori realistici basati su ricerche di mercato. Puoi modificare ogni valore nei passi successivi.</InfoBox>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Scegli uno Scenario</h2>
+            <p className="text-gray-600 mb-6">Seleziona un punto di partenza con valori preimpostati. Potrai modificare tutto nei passi successivi.</p>
+            <InfoBox type="tip">Gli scenari rappresentano tre livelli di ambizione: conservativo (WORST), realistico (MEDIUM), ottimistico (BEST).</InfoBox>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-              {[1, 2, 3].map(id => (
-                <button
-                  key={id}
-                  onClick={() => { loadScenario(id); setWizardStep(2); }}
-                  className={`p-6 rounded-xl border-2 transition-all hover:shadow-lg ${
-                    scenarioId === id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'
-                  }`}
-                >
-                  <div className={`text-lg font-bold mb-2 ${id === 1 ? 'text-red-600' : id === 2 ? 'text-yellow-600' : 'text-green-600'}`}>
-                    {SCENARI[id].name}
-                  </div>
-                  <div className="text-sm text-gray-600 space-y-1">
-                    <div>📡 {SCENARI[id].sensori[2].toLocaleString()} sensori (Y3)</div>
-                    <div>🛰️ {SCENARI[id].satelliti[2]} satelliti (Y3)</div>
-                    <div>👥 {SCENARI[id].fte[2]} dipendenti (Y3)</div>
-                    <div>💰 €{((SCENARI[id].seed + SCENARI[id].seriesA + SCENARI[id].grants) / 1000).toFixed(0)}k funding</div>
-                  </div>
-                </button>
+              {[1, 2, 3].map(id => {
+                const s = SCENARI[id];
+                const sensoriY3 = s.numClienti[2] * s.sensoriPerCliente[2];
+                return (
+                  <button
+                    key={id}
+                    onClick={() => { loadScenario(id); setWizardStep(2); }}
+                    className={`p-6 rounded-xl border-2 transition-all hover:shadow-lg text-left ${
+                      scenarioId === id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'
+                    }`}
+                  >
+                    <div className={`text-lg font-bold mb-2 ${id === 1 ? 'text-red-600' : id === 2 ? 'text-yellow-600' : 'text-green-600'}`}>
+                      {s.name}
+                    </div>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <div>👥 {s.numClienti[2].toLocaleString()} clienti (Y3)</div>
+                      <div>📡 {sensoriY3.toLocaleString()} sensori (Y3)</div>
+                      <div>🛰️ {s.satelliti[2]} satelliti (Y3)</div>
+                      <div>👨‍💼 {s.fte[2]} dipendenti (Y3)</div>
+                      <div>💰 €{((s.seed + s.seriesA + s.grants) / 1000).toFixed(0)}k funding</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+
+      // STEP 2: CLIENTI E DOMANDA
+      case 2:
+        return (
+          <div className="fade-in">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Clienti e Domanda</h2>
+            <p className="text-gray-600 mb-6">Definisci quanti clienti prevedi di acquisire e quanti sensori per cliente.</p>
+            <InfoBox type="info">
+              <strong>Nuovo approccio:</strong> Invece di inserire direttamente i sensori totali, definisci clienti × sensori/cliente.
+              Questo ti permette di calcolare correttamente l'ARPU (ricavo per cliente).
+            </InfoBox>
+            <div className="bg-gray-50 rounded-xl p-6">
+              <WizardInputRow label="Numero Clienti" values={inputs.numClienti} inputKey="numClienti" unit="clienti" step={10} help="Quanti clienti (aziende/enti) prevedi di servire." />
+              <WizardInputRow label="Sensori per Cliente" values={inputs.sensoriPerCliente} inputKey="sensoriPerCliente" unit="sensori" step={10} help="Media sensori che ogni cliente collega alla tua rete." />
+              <WizardInputRow label="Churn Mensile" values={inputs.churn.map(v => v * 100)} inputKey="churn" unit="%" step={0.1} help="% clienti persi ogni mese. 2% mensile = ~22% annuale." />
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-4">
+              {[0, 1, 2].map(y => (
+                <div key={y} className="p-4 bg-blue-50 rounded-lg text-center">
+                  <div className="text-xs text-gray-500">Anno {y + 1}</div>
+                  <div className="text-xl font-bold text-blue-700">{(inputs.numClienti[y] * inputs.sensoriPerCliente[y]).toLocaleString()}</div>
+                  <div className="text-xs text-gray-600">sensori totali</div>
+                </div>
               ))}
             </div>
           </div>
         );
 
-      case 2:
-        return (
-          <div className="fade-in">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Il Mercato</h2>
-            <p className="text-gray-600 mb-6">Definisci quanti sensori prevedi di connettere, a quale prezzo e il tasso di abbandono.</p>
-            <InfoBox type="info">Il prezzo per sensore dovrebbe bilanciare competitività e sostenibilità. Considera che il churn mensile impatta fortemente sul LTV.</InfoBox>
-            <div className="bg-gray-50 rounded-xl p-6">
-              <WizardInputRow label="Sensori connessi" values={inputs.sensori} inputKey="sensori" unit="sensori" step={100} help="Numero di sensori IoT che prevedi di connettere alla tua rete satellitare." />
-              <WizardInputRow label="Prezzo per sensore" values={inputs.prezzo} inputKey="prezzo" unit="€/mese" step={0.1} help="Ricavo mensile per ogni sensore connesso. Include la subscription base." />
-              <WizardInputRow label="Churn mensile" values={inputs.churn.map(v => v * 100)} inputKey="churn" unit="%" step={0.1} help="Percentuale di clienti che perdi ogni mese. Un churn del 2% significa che perdi ~21% dei clienti all'anno." />
-            </div>
-            <InfoBox type="formula" className="mt-4">
-              <strong>LTV = ARPU ÷ Churn</strong> — Con €3/mese e 2% churn: LTV = 3 ÷ 0.02 = €150 per cliente
-            </InfoBox>
-          </div>
-        );
-
+      // STEP 3: RICAVI E PRICING
       case 3:
         return (
           <div className="fade-in">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">L'Infrastruttura</h2>
-            <p className="text-gray-600 mb-6">Configura la tua costellazione di satelliti e i costi associati.</p>
-            <InfoBox type="warning">I satelliti sono CAPEX pesanti. Ogni satellite ha una vita utile limitata (3-5 anni) e richiede ammortamento.</InfoBox>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Ricavi e Pricing</h2>
+            <p className="text-gray-600 mb-6">Imposta il canone mensile e le opzioni premium.</p>
+            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="text-sm font-medium text-yellow-800 mb-2">📊 Benchmark di Mercato</div>
+              <div className="grid grid-cols-4 gap-2 text-xs">
+                {BENCHMARK.competitors.map(c => (
+                  <div key={c.name} className="bg-white rounded p-2 text-center">
+                    <div className="font-medium">{c.name}</div>
+                    <div className="text-gray-600">{c.prezzo}€/mese</div>
+                  </div>
+                ))}
+              </div>
+            </div>
             <div className="bg-gray-50 rounded-xl p-6">
-              <WizardInputRow label="Numero satelliti" values={inputs.satelliti} inputKey="satelliti" unit="sat" step={1} help="Quanti satelliti prevedi di lanciare. Più satelliti = più copertura ma più CAPEX." />
-              <WizardInputRow label="Costo per satellite" values={inputs.costoSat} inputKey="costoSat" unit="€" step={1000} help="Costo di costruzione/acquisto di ogni satellite. Può scendere con le economie di scala." />
-              <WizardInputRow label="Costo lancio (per sat)" values={inputs.costoLancio} inputKey="costoLancio" unit="€" step={1000} help="Costo per mettere in orbita ogni satellite. Include quota del vettore." />
-              <WizardInputRow label="Vita utile satellite" values={inputs.vitaSatellite} inputKey="vitaSatellite" unit="anni" step={1} help="Durata operativa prevista. Determina il periodo di ammortamento." />
+              <WizardInputRow label="Canone per Sensore" values={inputs.prezzo} inputKey="prezzo" unit="€/mese" step={0.1} help="Prezzo mensile per sensore. Nostro target: 2-4€ (-70% vs mercato)." />
+              <WizardInputRow label="% Clienti Premium" values={inputs.premiumPct.map(v => v * 100)} inputKey="premiumPct" unit="%" step={1} help="Quota clienti che pagano extra per funzionalità avanzate." />
+              <WizardInputRow label="Extra Premium" values={inputs.premiumExtra} inputKey="premiumExtra" unit="€/mese" step={5} help="Ricavo aggiuntivo mensile dai clienti premium." />
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-4">
+              {[0, 1, 2].map(y => {
+                const arpu = inputs.sensoriPerCliente[y] * inputs.prezzo[y] * (1 + inputs.premiumPct[y]);
+                return (
+                  <div key={y} className="p-4 bg-green-50 rounded-lg text-center">
+                    <div className="text-xs text-gray-500">ARPU Anno {y + 1}</div>
+                    <div className="text-xl font-bold text-green-700">€{arpu.toFixed(0)}</div>
+                    <div className="text-xs text-gray-600">per cliente/mese</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         );
 
+      // STEP 4: INFRASTRUTTURA
       case 4:
         return (
           <div className="fade-in">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Acquisizione Clienti</h2>
-            <p className="text-gray-600 mb-6">Quanto costa acquisire ogni nuovo cliente?</p>
-            <InfoBox type="info">Il CAC include tutti i costi di marketing e vendita divisi per il numero di nuovi clienti. Un LTV/CAC ratio di almeno 3x è considerato sano.</InfoBox>
-            <div className="bg-gray-50 rounded-xl p-6">
-              <WizardInputRow label="CAC (per sensore)" values={inputs.cac} inputKey="cac" unit="€" step={1} help="Customer Acquisition Cost: quanto spendi per acquisire ogni nuovo sensore connesso." />
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Infrastruttura Satelliti</h2>
+            <p className="text-gray-600 mb-6">Configura i parametri della costellazione. I satelliti necessari vengono calcolati automaticamente.</p>
+
+            {/* Toggle Auto/Manual */}
+            <div className="flex gap-4 mb-6">
+              <button
+                onClick={() => updateInputMode('satelliti', 'auto')}
+                className={`flex-1 p-3 rounded-lg border-2 transition ${inputModes.satelliti === 'auto' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+              >
+                <div className="font-medium">🤖 Calcolo Automatico</div>
+                <div className="text-xs text-gray-500">Basato su capacità e copertura</div>
+              </button>
+              <button
+                onClick={() => updateInputMode('satelliti', 'manual')}
+                className={`flex-1 p-3 rounded-lg border-2 transition ${inputModes.satelliti === 'manual' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+              >
+                <div className="font-medium">✏️ Inserimento Manuale</div>
+                <div className="text-xs text-gray-500">Imposta direttamente il numero</div>
+              </button>
             </div>
-            <div className="mt-6 grid grid-cols-3 gap-4">
+
+            {inputModes.satelliti === 'auto' ? (
+              <div className="bg-gray-50 rounded-xl p-6">
+                <div className="mb-4">
+                  <label className="font-medium text-gray-700">Capacità per Satellite</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input type="number" value={inputs.capacitaSatellite} onChange={(e) => updateInput('capacitaSatellite', 0, parseInt(e.target.value) || 0)} className="w-32 px-3 py-2 border rounded-lg text-right" />
+                    <span className="text-gray-500">sensori/satellite</span>
+                  </div>
+                </div>
+                <div className="mb-4">
+                  <label className="font-medium text-gray-700">Fattore Ridondanza</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input type="number" value={inputs.fattoreRidondanza} onChange={(e) => updateInput('fattoreRidondanza', 0, parseFloat(e.target.value) || 1)} step={0.1} className="w-32 px-3 py-2 border rounded-lg text-right" />
+                    <span className="text-gray-500">x (1.0 min, 1.5 consigliato)</span>
+                  </div>
+                </div>
+                <div className="mb-4">
+                  <label className="font-medium text-gray-700">Latenza Max Accettabile</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input type="number" value={inputs.latenzaMax} onChange={(e) => updateInput('latenzaMax', 0, parseInt(e.target.value) || 1)} className="w-32 px-3 py-2 border rounded-lg text-right" />
+                    <span className="text-gray-500">ore</span>
+                  </div>
+                </div>
+                <div className="mt-4 p-4 bg-blue-100 rounded-lg">
+                  <div className="text-sm font-medium text-blue-800">Satelliti Calcolati:</div>
+                  <div className="grid grid-cols-3 gap-4 mt-2">
+                    {[0, 1, 2].map(y => (
+                      <div key={y} className="text-center">
+                        <div className="text-xs text-gray-500">Anno {y + 1}</div>
+                        <div className="text-xl font-bold text-blue-700">{calc.satellitiNecessari[y]}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 rounded-xl p-6">
+                <WizardInputRow label="Numero Satelliti" values={inputs.satelliti} inputKey="satelliti" unit="sat" step={1} help="Satelliti da lanciare per anno." />
+              </div>
+            )}
+
+            <div className="bg-gray-50 rounded-xl p-6 mt-4">
+              <h3 className="font-medium text-gray-700 mb-4">Costi Satelliti</h3>
+              <WizardInputRow label="Costo Produzione" values={inputs.costoSat} inputKey="costoSat" unit="€/sat" step={5000} help="Costo costruzione satellite." />
+              <WizardInputRow label="Costo Lancio" values={inputs.costoLancio} inputKey="costoLancio" unit="€/sat" step={1000} help="Costo per mettere in orbita." />
+              <WizardInputRow label="Vita Utile" values={inputs.vitaSatellite} inputKey="vitaSatellite" unit="anni" step={1} help="Durata operativa (ammortamento)." />
+            </div>
+          </div>
+        );
+
+      // STEP 5: COSTI
+      case 5:
+        return (
+          <div className="fade-in">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Struttura Costi</h2>
+            <p className="text-gray-600 mb-6">Definisci team, CAC e costi operativi.</p>
+
+            {/* Team */}
+            <div className="bg-gray-50 rounded-xl p-6 mb-4">
+              <h3 className="font-medium text-gray-700 mb-4">👨‍💼 Team</h3>
+              <WizardInputRow label="FTE Totali" values={inputs.fte} inputKey="fte" unit="persone" step={1} help="Dipendenti full-time equivalent." />
+              <WizardInputRow label="RAL Media" values={inputs.ral} inputKey="ral" unit="€/anno" step={1000} help="Retribuzione annua lorda media." />
+              <WizardInputRow label="Welfare %" values={inputs.welfare.map(v => v * 100)} inputKey="welfare" unit="%" step={1} help="Benefits aggiuntivi." />
+              <div className="mt-2 p-3 bg-blue-50 rounded text-sm text-blue-800">
+                <strong>Costo personale stimato:</strong> {[0,1,2].map(y => `A${y+1}: €${fmt(calc.costoPersonale[y])}`).join(' | ')}
+              </div>
+            </div>
+
+            {/* CAC */}
+            <div className="bg-gray-50 rounded-xl p-6 mb-4">
+              <h3 className="font-medium text-gray-700 mb-4">📢 Acquisizione Clienti</h3>
+              <WizardInputRow label="Budget Marketing" values={inputs.marketingBudget} inputKey="marketingBudget" unit="€/anno" step={5000} help="Spesa annua in marketing." />
+              <WizardInputRow label="Budget Sales" values={inputs.salesBudget} inputKey="salesBudget" unit="€/anno" step={5000} help="Spesa annua in vendite." />
+              <div className="mt-2 p-3 bg-yellow-50 rounded text-sm text-yellow-800">
+                <strong>CAC calcolato:</strong> {[0,1,2].map(y => `A${y+1}: €${fmt(calc.cacCalcolato[y], 0)}/cliente`).join(' | ')}
+              </div>
+            </div>
+
+            {/* KPI Preview */}
+            <div className="grid grid-cols-3 gap-4">
               {[0, 1, 2].map(y => {
-                const ltv = inputs.prezzo[y] / inputs.churn[y];
-                const ratio = ltv / inputs.cac[y];
+                const ratio = calc.ltvCacCliente[y];
                 return (
                   <div key={y} className={`p-4 rounded-lg ${ratio >= 3 ? 'bg-green-50' : ratio >= 1 ? 'bg-yellow-50' : 'bg-red-50'}`}>
                     <div className="text-sm text-gray-500">Anno {y + 1}</div>
                     <div className="text-2xl font-bold">{ratio.toFixed(1)}x</div>
-                    <div className="text-xs text-gray-600">LTV/CAC ratio</div>
+                    <div className="text-xs text-gray-600">LTV/CAC (cliente)</div>
                     <div className={`text-xs font-medium mt-1 ${ratio >= 3 ? 'text-green-600' : ratio >= 1 ? 'text-yellow-600' : 'text-red-600'}`}>
-                      {ratio >= 3 ? '✓ Ottimo' : ratio >= 1 ? '⚠ Da migliorare' : '✗ Critico'}
+                      {ratio >= 3 ? '✓ Ottimo' : ratio >= 1 ? '⚠ Migliorabile' : '✗ Critico'}
                     </div>
                   </div>
                 );
@@ -1751,34 +2221,11 @@ export default function NanoSatDashboard() {
           </div>
         );
 
-      case 5:
-        return (
-          <div className="fade-in">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Il Team</h2>
-            <p className="text-gray-600 mb-6">Pianifica la crescita del team e i costi del personale.</p>
-            <InfoBox type="tip">Il costo del personale è spesso la voce più grande. Considera RAL + welfare + contributi (~40% extra sul lordo).</InfoBox>
-            <div className="bg-gray-50 rounded-xl p-6">
-              <WizardInputRow label="Numero dipendenti (FTE)" values={inputs.fte} inputKey="fte" unit="FTE" step={1} help="Full-Time Equivalent: numero di dipendenti a tempo pieno." />
-              <WizardInputRow label="RAL media" values={inputs.ral} inputKey="ral" unit="€/anno" step={1000} help="Retribuzione Annua Lorda media per dipendente." />
-              <WizardInputRow label="Welfare %" values={inputs.welfare.map(v => v * 100)} inputKey="welfare" unit="%" step={1} help="Percentuale di benefit aggiuntivi (buoni pasto, assicurazione, formazione...)." />
-            </div>
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-              <div className="text-sm text-blue-800">
-                <strong>Costo totale personale stimato:</strong>
-                <div className="grid grid-cols-3 gap-4 mt-2">
-                  {[0, 1, 2].map(y => (
-                    <div key={y}>Anno {y + 1}: <strong>€{fmt(inputs.fte[y] * inputs.ral[y] * (1 + inputs.welfare[y]) * 1.4)}</strong></div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
+      // STEP 6: FINANZIAMENTI
       case 6:
         return (
           <div className="fade-in">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">I Finanziamenti</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Finanziamenti</h2>
             <p className="text-gray-600 mb-6">Definisci le fonti di finanziamento per il tuo progetto.</p>
             <InfoBox type="info">Mix di equity (founders, seed, series) e grants permette di bilanciare diluzione e runway.</InfoBox>
             <div className="bg-gray-50 rounded-xl p-6">
@@ -1787,9 +2234,22 @@ export default function NanoSatDashboard() {
               <WizardInputRow label="Series A" values={inputs.seriesA} inputKey="seriesA" unit="€" step={100000} help="Round di crescita tipicamente 1-5M€." />
               <WizardInputRow label="Grants & Contributi" values={inputs.grants} inputKey="grants" unit="€" step={10000} help="Finanziamenti a fondo perduto (EU, ASI, regionali...)." />
             </div>
-            <div className="mt-4 p-4 bg-green-50 rounded-lg">
-              <div className="text-sm text-green-800">
-                <strong>Totale funding:</strong> €{fmt(inputs.capitaleFounders.reduce((a, b) => a + b, 0) + inputs.seed.reduce((a, b) => a + b, 0) + inputs.seriesA.reduce((a, b) => a + b, 0) + inputs.grants.reduce((a, b) => a + b, 0))}
+            <div className="mt-4 grid grid-cols-2 gap-4">
+              <div className="p-4 bg-green-50 rounded-lg">
+                <div className="text-sm text-green-800">
+                  <strong>Totale Funding:</strong>
+                  <div className="text-2xl font-bold mt-1">
+                    €{fmt(inputs.capitaleFounders.reduce((a, b) => a + b, 0) + inputs.seed.reduce((a, b) => a + b, 0) + inputs.seriesA.reduce((a, b) => a + b, 0) + inputs.grants.reduce((a, b) => a + b, 0))}
+                  </div>
+                </div>
+              </div>
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <div className="text-sm text-blue-800">
+                  <strong>Runway Stimato (A1):</strong>
+                  <div className="text-2xl font-bold mt-1">
+                    {calc.runway[0] > 24 ? '>24' : calc.runway[0].toFixed(0)} mesi
+                  </div>
+                </div>
               </div>
             </div>
           </div>
