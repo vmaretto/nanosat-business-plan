@@ -266,28 +266,49 @@ export default function NanoSatDashboard() {
 
   // Modalità inserimento: 'direct' | 'yoy' | 'benchmark'
   const [inputModes, setInputModes] = useState({
-    numClienti: 'direct',
-    sensoriPerCliente: 'direct',
-    prezzo: 'direct',
-    churn: 'direct',
-    cac: 'direct',
-    fte: 'direct',
-    costoSat: 'direct',
-    satelliti: 'auto', // 'auto' | 'manual'
+    // Clienti e Sensori
+    numClienti: 'direct',      // direct | yoy
+    sensoriPerCliente: 'direct', // direct | yoy
+    // Pricing
+    prezzo: 'direct',          // direct | yoy | benchmark
+    // Churn
+    churn: 'direct',           // direct | yoy | benchmark
+    // CAC
+    cac: 'direct',             // direct | yoy | benchmark
+    // Team
+    fte: 'direct',             // direct | yoy
+    ral: 'direct',             // direct | yoy
+    // OPEX
+    opex: 'direct',            // direct | yoy
+    // Infrastruttura
+    canoneSat: 'direct',       // direct | yoy
   });
 
   // Benchmark di mercato (riferimenti)
   const BENCHMARK = {
-    prezzoMercato: 12, // €/sensore/mese (media Iridium, Globalstar, Starlink)
-    churnMercato: 0.03, // 3% mensile
-    cacMercato: 50, // €/cliente
-    grossMarginMercato: 0.60, // 60%
-    competitors: [
-      { name: 'Iridium', prezzo: 15 },
-      { name: 'Globalstar', prezzo: 12 },
-      { name: 'Starlink IoT', prezzo: 8 },
-      { name: 'Swarm/SpaceX', prezzo: 5 },
-    ]
+    // Prezzi competitor
+    prezzoMercato: 10, // €/sensore/mese (media mercato)
+    prezzoCompetitors: [
+      { name: 'Iridium', prezzo: 15, note: 'Premium, alta affidabilità' },
+      { name: 'Globalstar', prezzo: 12, note: 'Copertura limitata' },
+      { name: 'Starlink IoT', prezzo: 8, note: 'Nuovo entrante' },
+      { name: 'Swarm/SpaceX', prezzo: 5, note: 'Low-cost, basic' },
+    ],
+    // Churn benchmark
+    churnMercato: 0.03, // 3% mensile (media IoT B2B)
+    churnTarget: 0.02, // 2% nostro target (-33%)
+    // CAC benchmark
+    cacMercato: 50, // €/cliente (media SaaS B2B)
+    cacTarget: 25, // nostro target (-50%)
+    // Gross Margin benchmark
+    grossMarginMercato: 0.60, // 60% (media SaaS)
+    grossMarginTarget: 0.75, // 75% nostro target (+25%)
+    // Crescite YoY tipiche
+    crescitaClientiTypical: 1.5, // +150% YoY early stage
+    crescitaFteTypical: 0.5, // +50% YoY
+    riduzioneChurnTypical: -0.10, // -10% YoY
+    riduzioneCacTypical: -0.15, // -15% YoY (efficienza)
+    riduzionePrezzoTypical: -0.10, // -10% YoY (competizione)
   };
 
   // INPUTS - Struttura aggiornata v2
@@ -349,6 +370,7 @@ export default function NanoSatDashboard() {
     fteOps: [1, 2, 3],                     // di cui Operations
     fteGA: [1, 2, 3],                      // di cui G&A
     ral: [50000, 50000, 50000],            // RAL media
+    ralYoY: 0.03,                          // +3% YoY (adeguamento)
     welfare: [0.15, 0.15, 0.15],           // Welfare %
     crescitaFteYoY: 0.50,                  // +50% YoY team
 
@@ -2080,6 +2102,194 @@ export default function NanoSatDashboard() {
     </div>
   );
 
+  // Helper: calcola valori YoY da Anno 1 + tasso
+  const calcYoYValues = (anno1, yoyRate, decimals = 0) => {
+    const v2 = anno1 * (1 + yoyRate);
+    const v3 = v2 * (1 + yoyRate);
+    return decimals > 0 ? [anno1, parseFloat(v2.toFixed(decimals)), parseFloat(v3.toFixed(decimals))] : [anno1, Math.round(v2), Math.round(v3)];
+  };
+
+  // Helper: calcola valore da benchmark
+  const calcFromBenchmark = (benchmarkValue, sconto) => {
+    return benchmarkValue * (1 + sconto);
+  };
+
+  // Componente: Input con selezione modalità (Direct / YoY / Benchmark)
+  const WizardInputWithMode = ({
+    label,
+    inputKey,
+    yoyKey,           // chiave per il tasso YoY (es. crescitaClientiYoY)
+    benchmarkKey,     // chiave per sconto benchmark (es. scontoBenchmark)
+    benchmarkValue,   // valore benchmark di riferimento
+    unit = '€',
+    step = 1,
+    help,
+    modes = ['direct', 'yoy'], // quali modalità supportare
+    isPercent = false,
+    decimals = 0,
+  }) => {
+    const currentMode = inputModes[inputKey] || 'direct';
+    const values = inputs[inputKey];
+    const yoyRate = yoyKey ? inputs[yoyKey] : 0;
+    const benchmarkSconto = benchmarkKey ? inputs[benchmarkKey] : 0;
+
+    // Calcola preview YoY
+    const yoyPreview = yoyKey ? calcYoYValues(values[0], yoyRate, decimals) : values;
+
+    // Calcola valore da benchmark
+    const benchmarkCalcValue = benchmarkValue ? calcFromBenchmark(benchmarkValue, benchmarkSconto) : values[0];
+
+    return (
+      <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <label className="font-medium text-gray-700">{label}</label>
+            {help && (
+              <button onClick={() => setExpandedHelp(prev => ({ ...prev, [inputKey]: !prev[inputKey] }))} className="text-blue-500 hover:text-blue-700">
+                <HelpCircle size={16} />
+              </button>
+            )}
+          </div>
+          {/* Mode Selector */}
+          <div className="flex gap-1 bg-gray-200 rounded-lg p-1">
+            {modes.includes('direct') && (
+              <button
+                onClick={() => updateInputMode(inputKey, 'direct')}
+                className={`px-3 py-1 text-xs font-medium rounded transition ${currentMode === 'direct' ? 'bg-white text-blue-700 shadow' : 'text-gray-600 hover:text-gray-800'}`}
+              >
+                Diretto
+              </button>
+            )}
+            {modes.includes('yoy') && yoyKey && (
+              <button
+                onClick={() => updateInputMode(inputKey, 'yoy')}
+                className={`px-3 py-1 text-xs font-medium rounded transition ${currentMode === 'yoy' ? 'bg-white text-blue-700 shadow' : 'text-gray-600 hover:text-gray-800'}`}
+              >
+                YoY
+              </button>
+            )}
+            {modes.includes('benchmark') && benchmarkValue && (
+              <button
+                onClick={() => updateInputMode(inputKey, 'benchmark')}
+                className={`px-3 py-1 text-xs font-medium rounded transition ${currentMode === 'benchmark' ? 'bg-white text-blue-700 shadow' : 'text-gray-600 hover:text-gray-800'}`}
+              >
+                % Benchmark
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* MODALITÀ DIRETTA */}
+        {currentMode === 'direct' && (
+          <div className="grid grid-cols-3 gap-4">
+            {[0, 1, 2].map(y => (
+              <div key={y}>
+                <div className="text-xs text-gray-500 mb-1 font-medium">Anno {y + 1}</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={isPercent ? (values[y] * 100).toFixed(decimals) : values[y]}
+                    onChange={(e) => updateInput(inputKey, y, parseFloat(e.target.value) || 0)}
+                    step={step}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-right font-medium"
+                  />
+                  <span className="text-gray-500 text-sm whitespace-nowrap min-w-[40px]">{unit}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* MODALITÀ YoY */}
+        {currentMode === 'yoy' && yoyKey && (
+          <div>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <div className="text-xs text-gray-500 mb-1 font-medium">Anno 1 (base)</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={isPercent ? (values[0] * 100).toFixed(decimals) : values[0]}
+                    onChange={(e) => updateInput(inputKey, 0, parseFloat(e.target.value) || 0)}
+                    step={step}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-right font-medium"
+                  />
+                  <span className="text-gray-500 text-sm">{unit}</span>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1 font-medium">Crescita YoY</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={(yoyRate * 100).toFixed(0)}
+                    onChange={(e) => updateInput(yoyKey, 0, parseFloat(e.target.value) || 0)}
+                    step={5}
+                    className="w-full px-3 py-2 border border-orange-300 bg-orange-50 rounded-lg focus:ring-2 focus:ring-orange-500 text-right font-medium text-orange-700"
+                  />
+                  <span className="text-orange-600 text-sm font-medium">%</span>
+                </div>
+              </div>
+            </div>
+            {/* Preview calcolo */}
+            <div className="p-3 bg-blue-50 rounded-lg">
+              <div className="text-xs text-blue-600 mb-2 font-medium">📊 Preview calcolo:</div>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-mono">A1: {isPercent ? (yoyPreview[0] * 100).toFixed(decimals) : fmt(yoyPreview[0])}</span>
+                <span className="text-gray-400">→</span>
+                <span className="font-mono">A2: {isPercent ? (yoyPreview[1] * 100).toFixed(decimals) : fmt(yoyPreview[1])}</span>
+                <span className="text-gray-400">→</span>
+                <span className="font-mono">A3: {isPercent ? (yoyPreview[2] * 100).toFixed(decimals) : fmt(yoyPreview[2])}</span>
+                <span className="text-gray-500 ml-2">{unit}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODALITÀ BENCHMARK */}
+        {currentMode === 'benchmark' && benchmarkKey && benchmarkValue && (
+          <div>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <div className="text-xs text-gray-500 mb-1 font-medium">Benchmark mercato</div>
+                <div className="px-3 py-2 bg-gray-100 rounded-lg text-right font-medium text-gray-600">
+                  {benchmarkValue} {unit}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1 font-medium">Scostamento %</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={(benchmarkSconto * 100).toFixed(0)}
+                    onChange={(e) => updateInput(benchmarkKey, 0, parseFloat(e.target.value) || 0)}
+                    step={5}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 text-right font-medium ${benchmarkSconto < 0 ? 'border-green-300 bg-green-50 text-green-700 focus:ring-green-500' : 'border-red-300 bg-red-50 text-red-700 focus:ring-red-500'}`}
+                  />
+                  <span className={`text-sm font-medium ${benchmarkSconto < 0 ? 'text-green-600' : 'text-red-600'}`}>%</span>
+                </div>
+              </div>
+            </div>
+            {/* Preview valore */}
+            <div className="p-3 bg-green-50 rounded-lg">
+              <div className="text-xs text-green-600 mb-1 font-medium">📊 Valore risultante:</div>
+              <div className="text-lg font-bold text-green-700">
+                {benchmarkCalcValue.toFixed(decimals > 0 ? decimals : 2)} {unit}
+                <span className="text-sm font-normal text-green-600 ml-2">
+                  ({benchmarkSconto >= 0 ? '+' : ''}{(benchmarkSconto * 100).toFixed(0)}% vs mercato)
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {expandedHelp[inputKey] && help && (
+          <div className="mt-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">{help}</div>
+        )}
+      </div>
+    );
+  };
+
   const WizardNav = () => (
     <div className="flex justify-between mt-8 pt-6 border-t">
       <button
@@ -2150,22 +2360,56 @@ export default function NanoSatDashboard() {
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Clienti e Domanda</h2>
             <p className="text-gray-600 mb-6">Definisci quanti clienti prevedi di acquisire e quanti sensori per cliente.</p>
             <InfoBox type="info">
-              <strong>Nuovo approccio:</strong> Invece di inserire direttamente i sensori totali, definisci clienti × sensori/cliente.
-              Questo ti permette di calcolare correttamente l'ARPU (ricavo per cliente).
+              <strong>Scegli la modalità:</strong> Inserisci direttamente i valori per anno, oppure definisci Anno 1 + crescita YoY.
             </InfoBox>
-            <div className="bg-gray-50 rounded-xl p-6">
-              <WizardInputRow label="Numero Clienti" values={inputs.numClienti} inputKey="numClienti" unit="clienti" step={10} help="Quanti clienti (aziende/enti) prevedi di servire." />
-              <WizardInputRow label="Sensori per Cliente" values={inputs.sensoriPerCliente} inputKey="sensoriPerCliente" unit="sensori" step={10} help="Media sensori che ogni cliente collega alla tua rete." />
-              <WizardInputRow label="Churn Mensile" values={inputs.churn.map(v => v * 100)} inputKey="churn" unit="%" step={0.1} help="% clienti persi ogni mese. 2% mensile = ~22% annuale." />
-            </div>
-            <div className="mt-4 grid grid-cols-3 gap-4">
-              {[0, 1, 2].map(y => (
-                <div key={y} className="p-4 bg-blue-50 rounded-lg text-center">
-                  <div className="text-xs text-gray-500">Anno {y + 1}</div>
-                  <div className="text-xl font-bold text-blue-700">{(inputs.numClienti[y] * inputs.sensoriPerCliente[y]).toLocaleString()}</div>
-                  <div className="text-xs text-gray-600">sensori totali</div>
-                </div>
-              ))}
+
+            <WizardInputWithMode
+              label="Numero Clienti"
+              inputKey="numClienti"
+              yoyKey="crescitaClientiYoY"
+              unit="clienti"
+              step={10}
+              modes={['direct', 'yoy']}
+              help="Quanti clienti (aziende/enti) prevedi di servire. YoY tipico early-stage: +100-200%."
+            />
+
+            <WizardInputWithMode
+              label="Sensori per Cliente"
+              inputKey="sensoriPerCliente"
+              yoyKey="crescitaSensoriYoY"
+              unit="sensori"
+              step={10}
+              modes={['direct', 'yoy']}
+              help="Media sensori che ogni cliente collega alla tua rete. Aumenta con l'adozione."
+            />
+
+            <WizardInputWithMode
+              label="Churn Mensile"
+              inputKey="churn"
+              yoyKey="churnYoY"
+              benchmarkKey="churnBenchmarkSconto"
+              benchmarkValue={BENCHMARK.churnMercato * 100}
+              unit="%"
+              step={0.1}
+              modes={['direct', 'yoy', 'benchmark']}
+              isPercent={true}
+              decimals={1}
+              help="% clienti persi ogni mese. 2% mensile = ~22% annuale. Benchmark IoT: 3%/mese."
+            />
+
+            {/* Riepilogo Sensori */}
+            <div className="mt-4 p-4 bg-blue-100 rounded-xl">
+              <div className="text-sm font-medium text-blue-800 mb-3">📊 Riepilogo Sensori Target</div>
+              <div className="grid grid-cols-3 gap-4">
+                {[0, 1, 2].map(y => (
+                  <div key={y} className="p-3 bg-white rounded-lg text-center">
+                    <div className="text-xs text-gray-500">Anno {y + 1}</div>
+                    <div className="text-xl font-bold text-blue-700">{(inputs.numClienti[y] * inputs.sensoriPerCliente[y]).toLocaleString()}</div>
+                    <div className="text-xs text-gray-600">sensori totali</div>
+                    <div className="text-xs text-gray-400 mt-1">{inputs.numClienti[y]} clienti × {inputs.sensoriPerCliente[y]}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         );
@@ -2175,20 +2419,44 @@ export default function NanoSatDashboard() {
         return (
           <div className="fade-in">
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Ricavi e Pricing</h2>
-            <p className="text-gray-600 mb-6">Imposta il canone mensile e le opzioni premium.</p>
-            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="text-sm font-medium text-yellow-800 mb-2">📊 Benchmark di Mercato</div>
-              <div className="grid grid-cols-4 gap-2 text-xs">
-                {BENCHMARK.competitors.map(c => (
-                  <div key={c.name} className="bg-white rounded p-2 text-center">
-                    <div className="font-medium">{c.name}</div>
-                    <div className="text-gray-600">{c.prezzo}€/mese</div>
+            <p className="text-gray-600 mb-6">Imposta il canone mensile. Puoi usare il benchmark di mercato come riferimento.</p>
+
+            {/* Benchmark Competitors */}
+            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+              <div className="text-sm font-medium text-yellow-800 mb-3">📊 Benchmark Competitor</div>
+              <div className="grid grid-cols-4 gap-3">
+                {BENCHMARK.prezzoCompetitors.map(c => (
+                  <div key={c.name} className="bg-white rounded-lg p-3 text-center border border-yellow-100">
+                    <div className="font-bold text-gray-800">{c.name}</div>
+                    <div className="text-lg font-bold text-yellow-700">{c.prezzo}€</div>
+                    <div className="text-xs text-gray-500">/sensore/mese</div>
+                    <div className="text-xs text-gray-400 mt-1">{c.note}</div>
                   </div>
                 ))}
               </div>
+              <div className="mt-3 text-center">
+                <span className="inline-block px-4 py-1 bg-yellow-100 rounded-full text-sm">
+                  Media mercato: <strong>{BENCHMARK.prezzoMercato}€/mese</strong>
+                </span>
+              </div>
             </div>
-            <div className="bg-gray-50 rounded-xl p-6">
-              <WizardInputRow label="Canone per Sensore" values={inputs.prezzo} inputKey="prezzo" unit="€/mese" step={0.1} help="Prezzo mensile per sensore. Nostro target: 2-4€ (-70% vs mercato)." />
+
+            {/* Canone con mode selector */}
+            <WizardInputWithMode
+              label="Canone per Sensore"
+              inputKey="prezzo"
+              yoyKey="prezzoYoY"
+              benchmarkKey="scontoBenchmark"
+              benchmarkValue={BENCHMARK.prezzoMercato}
+              unit="€/mese"
+              step={0.1}
+              modes={['direct', 'yoy', 'benchmark']}
+              decimals={2}
+              help="Prezzo mensile per sensore. Nostro posizionamento: -60/-70% vs mercato per disruption."
+            />
+
+            {/* Altri parametri pricing */}
+            <div className="grid grid-cols-2 gap-4">
               <WizardInputRow label="% Clienti Premium" values={inputs.premiumPct.map(v => v * 100)} inputKey="premiumPct" unit="%" step={1} help="Quota clienti che pagano extra per funzionalità avanzate." />
               <WizardInputRow label="Extra Premium" values={inputs.premiumExtra} inputKey="premiumExtra" unit="€/mese" step={5} help="Ricavo aggiuntivo mensile dai clienti premium." />
             </div>
@@ -2547,44 +2815,107 @@ export default function NanoSatDashboard() {
         return (
           <div className="fade-in">
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Struttura Costi</h2>
-            <p className="text-gray-600 mb-6">Definisci team, CAC e costi operativi.</p>
+            <p className="text-gray-600 mb-6">Definisci team e costi di acquisizione. Usa YoY per proiezioni automatiche.</p>
 
             {/* Team */}
-            <div className="bg-gray-50 rounded-xl p-6 mb-4">
-              <h3 className="font-medium text-gray-700 mb-4">👨‍💼 Team</h3>
-              <WizardInputRow label="FTE Totali" values={inputs.fte} inputKey="fte" unit="persone" step={1} help="Dipendenti full-time equivalent." />
-              <WizardInputRow label="RAL Media" values={inputs.ral} inputKey="ral" unit="€/anno" step={1000} help="Retribuzione annua lorda media." />
-              <WizardInputRow label="Welfare %" values={inputs.welfare.map(v => v * 100)} inputKey="welfare" unit="%" step={1} help="Benefits aggiuntivi." />
-              <div className="mt-2 p-3 bg-blue-50 rounded text-sm text-blue-800">
-                <strong>Costo personale stimato:</strong> {[0,1,2].map(y => `A${y+1}: €${fmt(calc.costoPersonale[y])}`).join(' | ')}
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-6 mb-6 border border-blue-200">
+              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">👨‍💼 Team</h3>
+
+              <WizardInputWithMode
+                label="FTE Totali"
+                inputKey="fte"
+                yoyKey="crescitaFteYoY"
+                unit="persone"
+                step={1}
+                modes={['direct', 'yoy']}
+                help="Dipendenti full-time equivalent. Crescita tipica startup: +50-80% YoY."
+              />
+
+              <WizardInputWithMode
+                label="RAL Media"
+                inputKey="ral"
+                yoyKey="ralYoY"
+                unit="€/anno"
+                step={1000}
+                modes={['direct', 'yoy']}
+                help="Retribuzione annua lorda media. Adeguamento tipico: +3-5% YoY."
+              />
+
+              <WizardInputRow label="Welfare %" values={inputs.welfare.map(v => v * 100)} inputKey="welfare" unit="%" step={1} help="Benefits aggiuntivi (buoni pasto, assicurazione, etc.)." />
+
+              <div className="mt-2 p-3 bg-white rounded-lg border border-blue-200 text-sm">
+                <strong className="text-blue-800">Costo personale stimato (RAL × 1.4 + welfare):</strong>
+                <div className="flex gap-4 mt-1">
+                  {[0,1,2].map(y => (
+                    <span key={y} className="font-mono">A{y+1}: <strong className="text-blue-700">{fmtK(calc.costoPersonale[y])}</strong></span>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* CAC */}
-            <div className="bg-gray-50 rounded-xl p-6 mb-4">
-              <h3 className="font-medium text-gray-700 mb-4">📢 Acquisizione Clienti</h3>
-              <WizardInputRow label="Budget Marketing" values={inputs.marketingBudget} inputKey="marketingBudget" unit="€/anno" step={5000} help="Spesa annua in marketing." />
-              <WizardInputRow label="Budget Sales" values={inputs.salesBudget} inputKey="salesBudget" unit="€/anno" step={5000} help="Spesa annua in vendite." />
-              <div className="mt-2 p-3 bg-yellow-50 rounded text-sm text-yellow-800">
-                <strong>CAC calcolato:</strong> {[0,1,2].map(y => `A${y+1}: €${fmt(calc.cacCalcolato[y], 0)}/cliente`).join(' | ')}
+            <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl p-6 mb-6 border border-orange-200">
+              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">📢 Acquisizione Clienti (CAC)</h3>
+
+              {/* Benchmark CAC */}
+              <div className="mb-4 p-3 bg-white rounded-lg border border-orange-200">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Benchmark CAC mercato SaaS B2B:</span>
+                  <span className="font-bold text-orange-700">{BENCHMARK.cacMercato}€/cliente</span>
+                </div>
+                <div className="flex items-center justify-between text-sm mt-1">
+                  <span className="text-gray-600">Nostro target:</span>
+                  <span className="font-bold text-green-700">{BENCHMARK.cacTarget}€/cliente (-50%)</span>
+                </div>
+              </div>
+
+              <WizardInputWithMode
+                label="CAC Unitario"
+                inputKey="cac"
+                yoyKey="cacYoY"
+                benchmarkKey="cacBenchmarkSconto"
+                benchmarkValue={BENCHMARK.cacMercato}
+                unit="€/cliente"
+                step={1}
+                modes={['direct', 'yoy', 'benchmark']}
+                help="Costo acquisizione cliente. Dovrebbe scendere nel tempo grazie all'efficienza. YoY tipico: -10/-20%."
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <WizardInputRow label="Budget Marketing" values={inputs.marketingBudget} inputKey="marketingBudget" unit="€/anno" step={5000} help="Spesa annua in marketing." />
+                <WizardInputRow label="Budget Sales" values={inputs.salesBudget} inputKey="salesBudget" unit="€/anno" step={5000} help="Spesa annua in vendite." />
+              </div>
+
+              <div className="mt-2 p-3 bg-white rounded-lg border border-orange-200 text-sm">
+                <strong className="text-orange-800">CAC calcolato da budget:</strong>
+                <div className="flex gap-4 mt-1">
+                  {[0,1,2].map(y => (
+                    <span key={y} className="font-mono">A{y+1}: <strong className="text-orange-700">{fmt(calc.cacCalcolato[y], 0)}€</strong></span>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* KPI Preview */}
-            <div className="grid grid-cols-3 gap-4">
-              {[0, 1, 2].map(y => {
-                const ratio = calc.ltvCacCliente[y];
-                return (
-                  <div key={y} className={`p-4 rounded-lg ${ratio >= 3 ? 'bg-green-50' : ratio >= 1 ? 'bg-yellow-50' : 'bg-red-50'}`}>
-                    <div className="text-sm text-gray-500">Anno {y + 1}</div>
-                    <div className="text-2xl font-bold">{ratio.toFixed(1)}x</div>
-                    <div className="text-xs text-gray-600">LTV/CAC (cliente)</div>
-                    <div className={`text-xs font-medium mt-1 ${ratio >= 3 ? 'text-green-600' : ratio >= 1 ? 'text-yellow-600' : 'text-red-600'}`}>
-                      {ratio >= 3 ? '✓ Ottimo' : ratio >= 1 ? '⚠ Migliorabile' : '✗ Critico'}
+            <div className="p-4 bg-gray-800 rounded-xl">
+              <div className="text-sm font-medium text-white mb-3">📊 KPI Acquisizione</div>
+              <div className="grid grid-cols-3 gap-4">
+                {[0, 1, 2].map(y => {
+                  const ratio = calc.ltvCacCliente[y];
+                  const payback = calc.cacPaybackCliente[y];
+                  return (
+                    <div key={y} className={`p-4 rounded-lg ${ratio >= 3 ? 'bg-green-900/50' : ratio >= 1 ? 'bg-yellow-900/50' : 'bg-red-900/50'}`}>
+                      <div className="text-xs text-gray-300">Anno {y + 1}</div>
+                      <div className="text-2xl font-bold text-white">{ratio.toFixed(1)}x</div>
+                      <div className="text-xs text-gray-400">LTV/CAC</div>
+                      <div className="text-sm text-gray-300 mt-2">Payback: {payback.toFixed(1)} mesi</div>
+                      <div className={`text-xs font-medium mt-1 ${ratio >= 3 ? 'text-green-400' : ratio >= 1 ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {ratio >= 3 ? '✓ Ottimo (>3x)' : ratio >= 1 ? '⚠ Migliorabile' : '✗ Critico'}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         );
