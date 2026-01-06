@@ -1,68 +1,177 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis } from 'recharts';
-import { Satellite, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Info, Lightbulb, Sliders, BookOpen, Target, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, HelpCircle, Compass, LayoutDashboard } from 'lucide-react';
+import { Satellite, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Info, Lightbulb, Sliders, BookOpen, Target, ArrowUpRight, ArrowDownRight, HelpCircle, ChevronRight, ChevronLeft, Check, LayoutDashboard, Compass } from 'lucide-react';
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// SCENARI PREDEFINITI
-// ═══════════════════════════════════════════════════════════════════════════════
+// Scenari
 const SCENARI = {
   1: { name: 'WORST', sensori: [2500, 10000, 35000], prezzo: [3.0, 2.5, 2.0], churn: 0.03, satelliti: [2, 4, 6], costoSat: [100000, 90000, 80000], costoLancio: 20000, fte: [6, 10, 16], ral: 48000, cac: [35, 28, 22], seed: 300000, seriesA: 1000000, grants: 300000 },
   2: { name: 'MEDIUM', sensori: [5000, 25000, 100000], prezzo: [3.5, 3.0, 2.5], churn: 0.02, satelliti: [4, 8, 12], costoSat: [80000, 70000, 60000], costoLancio: 15000, fte: [9, 17, 27], ral: 50000, cac: [25, 20, 15], seed: 500000, seriesA: 2000000, grants: 650000 },
   3: { name: 'BEST', sensori: [8000, 45000, 200000], prezzo: [4.0, 3.5, 3.0], churn: 0.01, satelliti: [6, 14, 24], costoSat: [70000, 60000, 50000], costoLancio: 12000, fte: [12, 25, 40], ral: 52000, cac: [18, 14, 10], seed: 800000, seriesA: 3500000, grants: 1000000 }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// DESCRIZIONI KPI
-// ═══════════════════════════════════════════════════════════════════════════════
+// Descrizioni KPI complete
 const KPI_INFO = {
-  grossMargin: { name: 'Gross Margin %', cosa: 'Percentuale di ricavi che resta dopo i costi diretti (ground station, cloud)', esempio: 'Incassi 100€, costi diretti 30€ → Gross Margin = 70%', perche: 'Un margine alto (>60%) significa che ogni cliente porta soldi da reinvestire.', target: '>65% per SaaS/tech.', come: 'Per migliorarlo: negozia costi infrastruttura, ottimizza uso cloud, aumenta prezzi.' },
-  ebitdaMargin: { name: 'EBITDA Margin %', cosa: 'Quanto resta dopo TUTTI i costi operativi, prima di ammortamenti e tasse', esempio: 'Ricavi 500k€, costi op. 600k€ → EBITDA=-100k€, margine -20%', perche: 'Mostra se il business "gira" operativamente.', target: 'Anno 3: almeno 0% o positivo.', come: 'Per migliorarlo: aumenta ricavi più velocemente dei costi.' },
-  netMargin: { name: 'Net Profit Margin %', cosa: 'Profitto finale dopo TUTTO: costi, ammortamenti, interessi, tasse', esempio: 'Ricavi 1M€, utile netto 100k€ → Net Margin = 10%', perche: 'Gli investitori guardano quando l\'utile diventa positivo.', target: '>15% a regime.', come: 'Per migliorarlo: ottimizza struttura fiscale, migliora EBITDA.' },
-  revenueGrowth: { name: 'Revenue Growth YoY', cosa: 'Di quanto aumentano i ricavi rispetto all\'anno prima', esempio: 'Anno 1=100k€, Anno 2=250k€ → Crescita=+150%', perche: 'LA metrica più importante per una startup.', target: '>50%/anno buono, >100% eccellente.', come: 'Per migliorarlo: espandi canali vendita, entra in nuovi mercati.' },
-  fcf: { name: 'Free Cash Flow', cosa: 'Soldi VERI che entrano/escono dalla cassa, dopo spese operative E investimenti', esempio: 'CF Operativo 200k€, CAPEX 400k€ → FCF = -200k€', perche: 'DIFFERENZA DA UTILE: l\'utile è contabile, il FCF è reale.', target: 'Positivo entro Anno 3-4.', come: 'Per migliorarlo: ritarda CAPEX, negozia pagamenti dilazionati.' },
-  runway: { name: 'Runway', cosa: 'Quanti mesi puoi sopravvivere con la cassa attuale', esempio: 'Cassa 500k€, bruci 50k€/mese → Runway=10 mesi', perche: 'Se il runway è troppo corto devi cercare urgentemente finanziamenti.', target: 'Minimo 12 mesi, ideale 18-24.', come: 'Per migliorarlo: raccogli più capitale, riduci burn rate.' },
-  mrr: { name: 'MRR', cosa: 'Ricavi RICORRENTI ogni mese dalle subscription', esempio: '2.500 sensori × 3.5€ = 8.750€ MRR', perche: 'LA metrica fondamentale per business in abbonamento.', target: 'In crescita costante.', come: 'Per migliorarlo: acquisisci più clienti, aumenta ARPU, riduci churn.' },
-  arr: { name: 'ARR', cosa: 'MRR × 12. Modo standard per valutare aziende SaaS.', esempio: 'MRR 50k€ → ARR = 600k€', perche: 'Le valutazioni si basano su multipli dell\'ARR.', target: 'Crescita >50%/anno.', come: 'Per migliorarlo: focus su contratti annuali.' },
-  cac: { name: 'CAC', cosa: 'Quanto spendi per acquisire UN nuovo cliente', esempio: 'Spendi 50k€, acquisisci 2.000 clienti → CAC = 25€', perche: 'Se il CAC è troppo alto il business non è sostenibile.', target: 'In calo anno su anno.', come: 'Per ridurlo: ottimizza marketing, migliora conversion rate.' },
-  ltv: { name: 'LTV', cosa: 'Quanto VALE un cliente durante tutta la sua "vita"', esempio: 'Cliente paga 3€/mese, resta 50 mesi → LTV = 150€', perche: 'Se sai quanto vale un cliente, sai quanto puoi spendere per acquisirlo.', target: '>3× il CAC.', come: 'Per aumentarlo: riduci churn, aumenta ARPU.' },
-  ltvCac: { name: 'LTV/CAC', cosa: 'IL NUMERO PIÙ IMPORTANTE. Rapporto tra valore del cliente e costo di acquisizione.', esempio: 'LTV=150€, CAC=25€ → LTV/CAC = 6×', perche: '<1× DISASTRO. 3× SOGLIA MINIMA. >5× ECCELLENTE.', target: 'Minimo 3×, ideale 4-5×.', come: 'Per migliorarlo: aumenta LTV E riduci CAC.' },
-  cacPayback: { name: 'CAC Payback', cosa: 'Mesi per "ripagare" il costo di acquisizione', esempio: 'CAC=25€, ricavo mensile=3€ → Payback = 8.3 mesi', perche: 'Più è lungo, più cash devi avere per crescere.', target: '<12 mesi ideale.', come: 'Per ridurlo: aumenta ARPU primo mese, riduci CAC.' },
-  churnAnnuo: { name: 'Churn Rate Annuo', cosa: 'Percentuale di clienti che perdi in un anno', esempio: 'Churn mensile 2% → Churn annuo ≈ 21%', perche: 'Alto churn = "riempi una vasca bucata".', target: '<10% annuo per B2B SaaS.', come: 'Per ridurlo: migliora onboarding, customer success.' },
-  rule40: { name: 'Rule of 40', cosa: 'Crescita% + EBITDA%. Regola per salute startup SaaS.', esempio: 'Crescita 80% + EBITDA -30% = Rule of 40 = 50%', perche: 'Bilancia crescita e profittabilità.', target: '>40% è buono.', come: 'Per migliorarlo: accelera crescita o migliora profittabilità.' },
-  revPerEmployee: { name: 'Revenue per Employee', cosa: 'Quanto fatturato genera ogni dipendente', esempio: 'Ricavi 500k€, team 9 persone → 55k€/dipendente', perche: 'Misura la produttività del team.', target: '€100-200k/dipendente per SaaS maturi.', come: 'Per migliorarlo: automatizza, usa AI.' },
-  revPerSat: { name: 'Revenue per Satellite', cosa: 'Quanto fatturato genera ogni satellite', esempio: 'Ricavi 300k€, 4 satelliti → 75k€/satellite', perche: 'Misura efficienza dell\'investimento.', target: '>€100k/satellite a regime.', come: 'Per migliorarlo: acquisisci più clienti per satellite.' }
+  // KPI Classici
+  grossMargin: {
+    name: 'Gross Margin %',
+    cosa: 'Percentuale di ricavi che resta dopo i costi diretti (ground station, cloud)',
+    esempio: 'Incassi 100€, costi diretti 30€ → Gross Margin = 70%',
+    perche: 'Un margine alto (>60%) significa che ogni cliente porta soldi da reinvestire. Se è basso devi vendere tantissimo solo per coprire i costi fissi.',
+    target: '>65% per SaaS/tech. Sotto 50% problema serio.',
+    come: 'Per migliorarlo: negozia costi infrastruttura, ottimizza uso cloud, aumenta prezzi se il mercato lo permette.'
+  },
+  ebitdaMargin: {
+    name: 'EBITDA Margin %',
+    cosa: 'Quanto resta dopo TUTTI i costi operativi, prima di ammortamenti e tasse',
+    esempio: 'Ricavi 500k€, costi op. 600k€ → EBITDA=-100k€, margine -20%',
+    perche: 'Mostra se il business "gira" operativamente. Può essere negativo all\'inizio ma deve diventare positivo entro 3-4 anni.',
+    target: 'Anno 1: può essere negativo. Anno 3: almeno 0% o positivo.',
+    come: 'Per migliorarlo: aumenta ricavi più velocemente dei costi, riduci OPEX non essenziali, automatizza processi.'
+  },
+  netMargin: {
+    name: 'Net Profit Margin %',
+    cosa: 'Profitto finale dopo TUTTO: costi, ammortamenti, interessi, tasse',
+    esempio: 'Ricavi 1M€, utile netto 100k€ → Net Margin = 10%',
+    perche: 'Gli investitori guardano quando l\'utile diventa positivo. Una startup può restare in perdita per anni ma serve un piano credibile.',
+    target: '>15% a regime (lungo termine).',
+    come: 'Per migliorarlo: ottimizza struttura fiscale, riduci ammortamenti con leasing, migliora EBITDA.'
+  },
+  revenueGrowth: {
+    name: 'Revenue Growth YoY',
+    cosa: 'Di quanto aumentano i ricavi rispetto all\'anno prima',
+    esempio: 'Anno 1=100k€, Anno 2=250k€ → Crescita=+150%',
+    perche: 'LA metrica più importante per una startup. Gli investitori valutano in base al potenziale di crescita.',
+    target: '>50%/anno buono, >100% eccellente per early-stage.',
+    come: 'Per migliorarlo: espandi canali vendita, entra in nuovi mercati, lancia prodotti premium, riduci churn.'
+  },
+  fcf: {
+    name: 'Free Cash Flow',
+    cosa: 'Soldi VERI che entrano/escono dalla cassa, dopo spese operative E investimenti',
+    esempio: 'CF Operativo 200k€, CAPEX 400k€ → FCF = -200k€',
+    perche: 'DIFFERENZA DA UTILE: l\'utile è contabile, il FCF è reale. Puoi avere utile positivo ma FCF negativo.',
+    target: 'Positivo entro Anno 3-4.',
+    come: 'Per migliorarlo: ritarda CAPEX, negozia pagamenti dilazionati, riduci crediti vs clienti.'
+  },
+  runway: {
+    name: 'Runway',
+    cosa: 'Quanti mesi puoi sopravvivere con la cassa attuale bruciando al ritmo corrente',
+    esempio: 'Cassa 500k€, bruci 50k€/mese → Runway=10 mesi',
+    perche: 'Se il runway è troppo corto devi cercare urgentemente finanziamenti. Gli investitori non finanziano aziende disperate.',
+    target: 'Minimo 12 mesi, ideale 18-24. Sotto 6 mesi = EMERGENZA.',
+    come: 'Per migliorarlo: raccogli più capitale, riduci burn rate, anticipa ricavi.'
+  },
+  breakeven: {
+    name: 'Break-even Point',
+    cosa: 'Ricavi necessari per coprire tutti i costi fissi. Sotto sei in perdita, sopra guadagni.',
+    esempio: 'Costi fissi 300k€, margine lordo 70% → Break-even = 430k€ di ricavi',
+    perche: 'Sapere il break-even ti dice quanto devi vendere per smettere di perdere soldi. È il traguardo minimo.',
+    target: 'Raggiungere entro Anno 2-3.',
+    come: 'Per abbassarlo: riduci costi fissi, aumenta margine lordo, negozia con fornitori.'
+  },
+  // KPI Avanzati
+  mrr: {
+    name: 'MRR (Monthly Recurring Revenue)',
+    cosa: 'Ricavi RICORRENTI ogni mese dalle subscription. Non include vendite una tantum.',
+    esempio: '2.500 sensori × 3.5€ = 8.750€ MRR',
+    perche: 'LA metrica fondamentale per business in abbonamento. È prevedibile, stabile e permette di pianificare.',
+    target: 'In crescita costante mese su mese.',
+    come: 'Per migliorarlo: acquisisci più clienti, aumenta ARPU, riduci churn, fai upselling.'
+  },
+  arr: {
+    name: 'ARR (Annual Recurring Revenue)',
+    cosa: 'MRR × 12. È il modo standard per valutare aziende SaaS.',
+    esempio: 'MRR 50k€ → ARR = 600k€',
+    perche: 'Le valutazioni startup SaaS si basano su multipli dell\'ARR (es. valutazione = 10× ARR).',
+    target: 'Crescita >50%/anno.',
+    come: 'Per migliorarlo: stesse leve dell\'MRR, focus su contratti annuali invece che mensili.'
+  },
+  cac: {
+    name: 'CAC (Customer Acquisition Cost)',
+    cosa: 'Quanto spendi in media per acquisire UN nuovo cliente. Include marketing, vendite, promozioni.',
+    esempio: 'Spendi 50k€ in marketing, acquisisci 2.000 clienti → CAC = 25€',
+    perche: 'Se il CAC è troppo alto rispetto a quanto guadagni dal cliente, il business non è sostenibile.',
+    target: 'In calo anno su anno grazie a efficienza.',
+    come: 'Per ridurlo: ottimizza canali marketing, migliora conversion rate, usa referral program, content marketing.'
+  },
+  ltv: {
+    name: 'LTV (Customer Lifetime Value)',
+    cosa: 'Quanto VALE un cliente durante tutta la sua "vita". Ricavo mensile × durata media.',
+    esempio: 'Cliente paga 3€/mese, resta 50 mesi → LTV = 150€',
+    perche: 'Se sai quanto vale un cliente, sai quanto puoi spendere per acquisirlo restando profittevole.',
+    target: '>3× il CAC.',
+    come: 'Per aumentarlo: riduci churn, aumenta ARPU, fai upselling, migliora retention.'
+  },
+  ltvCac: {
+    name: 'LTV/CAC Ratio',
+    cosa: 'IL NUMERO PIÙ IMPORTANTE. Rapporto tra valore del cliente e costo di acquisizione.',
+    esempio: 'LTV=150€, CAC=25€ → LTV/CAC = 6×',
+    perche: '<1× DISASTRO (perdi su ogni cliente). 1-2× PROBLEMATICO. 3× SOGLIA MINIMA. 4-5× BUONO. >5× ECCELLENTE.',
+    target: 'Minimo 3×, ideale 4-5×.',
+    come: 'Per migliorarlo: aumenta LTV (retention, upselling) E riduci CAC (efficienza marketing).'
+  },
+  cacPayback: {
+    name: 'CAC Payback',
+    cosa: 'Mesi per "ripagare" il costo di acquisizione con i ricavi del cliente.',
+    esempio: 'CAC=25€, ricavo mensile=3€ → Payback = 8.3 mesi',
+    perche: 'Più è lungo, più cash devi avere per crescere. Oltre 24 mesi è molto rischioso.',
+    target: '<12 mesi ideale, <18 accettabile.',
+    come: 'Per ridurlo: aumenta ARPU primo mese, riduci CAC, offri piani annuali prepagati.'
+  },
+  churnAnnuo: {
+    name: 'Churn Rate Annuo',
+    cosa: 'Percentuale di clienti che perdi in un anno.',
+    esempio: 'Churn mensile 2% → Churn annuo ≈ 21%',
+    perche: 'Alto churn = "riempi una vasca bucata". Devi continuamente acquisire nuovi clienti solo per stare fermo.',
+    target: '<10% annuo per B2B SaaS. >20% è preoccupante.',
+    come: 'Per ridurlo: migliora onboarding, customer success, qualità prodotto, supporto clienti.'
+  },
+  rule40: {
+    name: 'Rule of 40',
+    cosa: 'Crescita% + EBITDA%. Regola empirica per salute complessiva startup SaaS.',
+    esempio: 'Crescita 80% + EBITDA -30% = Rule of 40 = 50%',
+    perche: 'Bilancia crescita e profittabilità. Puoi bruciare soldi per crescere veloce O crescere piano ma profittevolmente.',
+    target: '>40% è buono. Le migliori SaaS pubbliche >60%.',
+    come: 'Per migliorarlo: o acceleri la crescita o migliori la profittabilità (o entrambi).'
+  },
+  revPerEmployee: {
+    name: 'Revenue per Employee',
+    cosa: 'Quanto fatturato genera ogni dipendente in media.',
+    esempio: 'Ricavi 500k€, team 9 persone → 55k€/dipendente',
+    perche: 'Misura la produttività del team. Se cresce, stai scalando bene.',
+    target: '€100-200k/dipendente per SaaS maturi.',
+    come: 'Per migliorarlo: automatizza, usa AI, outsourcing non-core, assumi solo ruoli critici.'
+  },
+  revPerSat: {
+    name: 'Revenue per Satellite',
+    cosa: 'Quanto fatturato genera ogni satellite della costellazione.',
+    esempio: 'Ricavi 300k€, 4 satelliti → 75k€/satellite',
+    perche: 'Misura efficienza dell\'investimento in infrastruttura. Se troppo basso, stai sotto-utilizzando i satelliti.',
+    target: 'In crescita, >€100k/satellite a regime.',
+    come: 'Per migliorarlo: acquisisci più clienti per satellite, ottimizza capacità, ritarda nuovi lanci.'
+  },
+  costoPerSensore: {
+    name: 'Costo per Sensore Servito',
+    cosa: 'Quanto costa all\'azienda servire ogni singolo sensore (costi op. / sensori).',
+    esempio: 'Costi 600k€, 5.000 sensori → 120€/sensore',
+    perche: 'Deve SCENDERE nel tempo grazie alle economie di scala. Se non scende, il modello non scala.',
+    target: 'In calo costante anno su anno.',
+    come: 'Per ridurlo: aumenta base clienti, negozia costi fissi, automatizza operazioni.'
+  }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// WIZARD STEPS INFO
-// ═══════════════════════════════════════════════════════════════════════════════
-const WIZARD_STEPS = [
-  { id: 1, title: 'Il Tuo Progetto', subtitle: 'Scegli uno scenario di partenza', icon: Target },
-  { id: 2, title: 'Il Mercato', subtitle: 'Clienti e pricing', icon: TrendingUp },
-  { id: 3, title: 'L\'Infrastruttura', subtitle: 'Satelliti e costi', icon: Satellite },
-  { id: 4, title: 'Acquisizione Clienti', subtitle: 'CAC e marketing', icon: Target },
-  { id: 5, title: 'Il Team', subtitle: 'Persone e costi', icon: BookOpen },
-  { id: 6, title: 'I Finanziamenti', subtitle: 'Funding e grants', icon: TrendingUp }
-];
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// MAIN COMPONENT
-// ═══════════════════════════════════════════════════════════════════════════════
-export default function NanoSatBusinessPlanApp() {
-  // View state
-  const [viewMode, setViewMode] = useState('dashboard'); // 'wizard' | 'dashboard'
-  const [wizardStep, setWizardStep] = useState(1);
-  const [fadeClass, setFadeClass] = useState('opacity-100');
-
-  // Dashboard state
+export default function NanoSatDashboard() {
   const [scenarioId, setScenarioId] = useState(2);
   const [activeSheet, setActiveSheet] = useState('DASHBOARD');
   const [showImpact, setShowImpact] = useState({});
   const [selectedKPI, setSelectedKPI] = useState(null);
-  const [expandedHelp, setExpandedHelp] = useState({});
   const prevCalcRef = useRef(null);
 
-  // INPUTS STATE
+  // Wizard states
+  const [viewMode, setViewMode] = useState('dashboard'); // 'wizard' | 'dashboard'
+  const [wizardStep, setWizardStep] = useState(1);
+  const [expandedHelp, setExpandedHelp] = useState({});
+
+  // INPUTS
   const [inputs, setInputs] = useState({
     satelliti: [4, 8, 12], costoSat: [80000, 70000, 60000], costoLancio: [15000, 15000, 15000], vitaSatellite: [3, 3, 3],
     sensori: [5000, 25000, 100000], prezzo: [3.5, 3.0, 2.5], churn: [0.02, 0.02, 0.02], cac: [25, 20, 15],
@@ -77,19 +186,6 @@ export default function NanoSatBusinessPlanApp() {
     ggIncasso: [30, 30, 30], ggPagamento: [60, 60, 60]
   });
 
-  // LocalStorage persistence
-  useEffect(() => {
-    const saved = localStorage.getItem('nanosat-bp-inputs');
-    if (saved) {
-      try { setInputs(JSON.parse(saved)); } catch (e) { console.error('Error loading saved inputs:', e); }
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('nanosat-bp-inputs', JSON.stringify(inputs));
-  }, [inputs]);
-
-  // Load scenario
   const loadScenario = (id) => {
     const s = SCENARI[id];
     setInputs(prev => ({
@@ -107,19 +203,33 @@ export default function NanoSatBusinessPlanApp() {
     setInputs(prev => ({ ...prev, [key]: prev[key].map((v, idx) => idx === yearIndex ? actualValue : v) }));
   };
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // CALCOLI INTEGRATI CE/SP/CF
-  // ═══════════════════════════════════════════════════════════════════════════════
+  // localStorage persistence
+  useEffect(() => {
+    const saved = localStorage.getItem('nanosat-bp-inputs');
+    if (saved) {
+      try {
+        setInputs(JSON.parse(saved));
+      } catch (e) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('nanosat-bp-inputs', JSON.stringify(inputs));
+  }, [inputs]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // CALCOLI INTEGRATI CE/SP/CF - IL BILANCIO QUADRA PERFETTAMENTE
+  // ═══════════════════════════════════════════════════════════════
   const calc = useMemo(() => {
     const i = inputs;
-
+    
     // 1. RICAVI
     const sensoriInizio = [0, 0, 0];
     const sensoriNuovi = [0, 0, 0];
     const sensoriChurn = [0, 0, 0];
     const sensoriFine = [0, 0, 0];
     const sensoriMedi = [0, 0, 0];
-
+    
     for (let y = 0; y < 3; y++) {
       sensoriInizio[y] = y === 0 ? 0 : sensoriFine[y-1];
       sensoriNuovi[y] = Math.max(0, i.sensori[y] - sensoriInizio[y]);
@@ -127,12 +237,12 @@ export default function NanoSatBusinessPlanApp() {
       sensoriFine[y] = Math.max(0, sensoriInizio[y] + sensoriNuovi[y] - sensoriChurn[y]);
       sensoriMedi[y] = (sensoriInizio[y] + sensoriFine[y]) / 2;
     }
-
+    
     const ricaviSub = sensoriMedi.map((s, y) => s * i.prezzo[y] * 12);
     const ricaviPremium = sensoriMedi.map((s, y) => s * i.premiumPct[y] * i.premiumExtra[y] * 12);
     const ricaviHardware = sensoriNuovi.map((s, y) => s * i.hardwarePct[y] * i.hardwareMargin[y]);
     const ricaviTotali = [0, 1, 2].map(y => ricaviSub[y] + ricaviPremium[y] + ricaviHardware[y]);
-    const crescitaYoY = [0, ricaviTotali[0] > 0 ? (ricaviTotali[1] - ricaviTotali[0]) / ricaviTotali[0] : 0,
+    const crescitaYoY = [0, ricaviTotali[0] > 0 ? (ricaviTotali[1] - ricaviTotali[0]) / ricaviTotali[0] : 0, 
                            ricaviTotali[1] > 0 ? (ricaviTotali[2] - ricaviTotali[1]) / ricaviTotali[1] : 0];
 
     // 2. COSTI OPERATIVI
@@ -148,7 +258,7 @@ export default function NanoSatBusinessPlanApp() {
     const capexSatelliti = i.satelliti.map((s, y) => s * (i.costoSat[y] + i.costoLancio[y]));
     const capexAttrezzature = [...i.attrezzature];
     const capexTotale = capexSatelliti.map((c, y) => c + capexAttrezzature[y]);
-
+    
     const ammSatellitiAnno = [
       capexSatelliti[0] / i.vitaSatellite[0],
       capexSatelliti[0] / i.vitaSatellite[0] + capexSatelliti[1] / i.vitaSatellite[1],
@@ -165,18 +275,19 @@ export default function NanoSatBusinessPlanApp() {
     const costiDiretti = groundAnnuo.map((g, y) => g + cloudAnnuo[y]);
     const margineLordo = ricaviTotali.map((r, y) => r - costiDiretti[y]);
     const margineLordoPct = ricaviTotali.map((r, y) => r > 0 ? margineLordo[y] / r : 0);
-
+    
     const totCostiOperativi = [0, 1, 2].map(y => costoPersonale[y] + opexTotale[y] - costiDiretti[y] + cacTotale[y]);
     const ebitda = margineLordo.map((m, y) => m - totCostiOperativi[y]);
     const ebitdaPct = ricaviTotali.map((r, y) => r > 0 ? ebitda[y] / r : 0);
-
+    
     const ebit = ebitda.map((e, y) => e - ammTotaleAnno[y]);
+    const ebitPct = ricaviTotali.map((r, y) => r > 0 ? ebit[y] / r : 0);
     const imposteCompetenza = ebit.map(e => e > 0 ? e * 0.279 : 0);
     const utileNetto = ebit.map((e, y) => e - imposteCompetenza[y]);
     const utilePct = ricaviTotali.map((r, y) => r > 0 ? utileNetto[y] / r : 0);
 
     // 5. FINANZIAMENTI
-    const finanziamentiAnno = [0, 1, 2].map(y =>
+    const finanziamentiAnno = [0, 1, 2].map(y => 
       i.capitaleFounders[y] + i.seed[y] + i.seriesA[y] + i.grants[y]
     );
 
@@ -203,14 +314,14 @@ export default function NanoSatBusinessPlanApp() {
     const deltaCrediti = creditiComm.map((c, y) => c - creditiCommInizio[y]);
     const deltaDebitiComm = debitiComm.map((d, y) => d - debitiCommInizio[y]);
     const deltaDebitiTrib = debitiTrib.map((d, y) => d - debitiTribInizio[y]);
-
-    const cfOperativo = [0, 1, 2].map(y =>
+    
+    const cfOperativo = [0, 1, 2].map(y => 
       utileNetto[y] + ammTotaleAnno[y] - deltaCrediti[y] + deltaDebitiComm[y] + deltaDebitiTrib[y]
     );
     const cfInvestimenti = capexTotale.map(c => -c);
     const cfFinanziario = [...finanziamentiAnno];
     const flussoNetto = [0, 1, 2].map(y => cfOperativo[y] + cfInvestimenti[y] + cfFinanziario[y]);
-
+    
     const cassaInizio = [0, 0, 0];
     const cassaFine = [0, 0, 0];
     for (let y = 0; y < 3; y++) {
@@ -240,6 +351,7 @@ export default function NanoSatBusinessPlanApp() {
     const revPerEmployee = ricaviTotali.map((r, y) => i.fte[y] > 0 ? r / i.fte[y] : 0);
     const satTotali = [i.satelliti[0], i.satelliti[0] + i.satelliti[1], i.satelliti[0] + i.satelliti[1] + i.satelliti[2]];
     const revPerSat = ricaviTotali.map((r, y) => satTotali[y] > 0 ? r / satTotali[y] : 0);
+    const costoPerSensore = sensoriFine.map((s, y) => s > 0 ? (costoPersonale[y] + opexTotale[y]) / s : 0);
 
     // 10. VALUTAZIONE
     const valRevMultiple = ricaviTotali.map((r, y) => r * i.revenueMultiple[y]);
@@ -250,13 +362,17 @@ export default function NanoSatBusinessPlanApp() {
     const pvTerminal = terminalValue * discountFactor[2];
     const valDcf = Math.max(0, pvFcf[0] + pvFcf[1] + pvFcf[2] + pvTerminal);
     const valMedia = [0, 1, 2].map(y => (valRevMultiple[y] + valArrMultiple[y] + (y === 2 ? valDcf : valRevMultiple[y])) / 3);
+    const diluizioneFounders = [0, 1, 2].map(y => {
+      const inv = i.seed[0] + (y > 0 ? i.seriesA[1] : 0);
+      return valMedia[y] > 0 ? inv / (valMedia[y] + inv) : 0;
+    });
 
     return {
       sensoriInizio, sensoriNuovi, sensoriChurn, sensoriFine, sensoriMedi,
       ricaviSub, ricaviPremium, ricaviHardware, ricaviTotali, crescitaYoY,
       costoPersonale, affittoAnnuo, groundAnnuo, cloudAnnuo, altriOpex, opexTotale, cacTotale,
       capexSatelliti, capexAttrezzature, capexTotale, ammSatellitiAnno, ammAttrezzAnno, ammTotaleAnno,
-      costiDiretti, margineLordo, margineLordoPct, totCostiOperativi, ebitda, ebitdaPct, ebit, imposteCompetenza, utileNetto, utilePct,
+      costiDiretti, margineLordo, margineLordoPct, totCostiOperativi, ebitda, ebitdaPct, ebit, ebitPct, imposteCompetenza, utileNetto, utilePct,
       immobLordo, fondoAmmCumulato, immobNetto,
       creditiCommInizio, creditiComm, deltaCrediti,
       debitiCommInizio, debitiComm, deltaDebitiComm,
@@ -264,648 +380,35 @@ export default function NanoSatBusinessPlanApp() {
       totaleCircolante, totaleAttivo, totalePassivoCorr,
       finanziamentiAnno, pnVersamenti, pnUtiliCumulati, totalePN, totalePassivoPN, verificaSP,
       cfOperativo, cfInvestimenti, cfFinanziario, flussoNetto, cassaInizio, cassaFine,
-      mrr, arr, churnAnnuo, ltv, ltvCac, cacPayback, rule40, fcf, runway, breakeven, breakevenOk, revPerEmployee, satTotali, revPerSat,
-      valRevMultiple, valArrMultiple, valDcf, valMedia, terminalValue, pvFcf, pvTerminal, discountFactor
+      mrr, arr, churnAnnuo, ltv, ltvCac, cacPayback, rule40, fcf, runway, breakeven, breakevenOk, revPerEmployee, satTotali, revPerSat, costoPerSensore,
+      valRevMultiple, valArrMultiple, valDcf, valMedia, terminalValue, pvFcf, pvTerminal, discountFactor, diluizioneFounders
     };
   }, [inputs]);
+
+  // Track impacts
+  useEffect(() => {
+    if (prevCalcRef.current) {
+      const impacts = {};
+      ['ricaviTotali', 'ebitda', 'utileNetto', 'cassaFine', 'ltvCac', 'valMedia'].forEach(key => {
+        for (let y = 0; y < 3; y++) {
+          const prev = prevCalcRef.current[key]?.[y];
+          const curr = calc[key]?.[y];
+          if (prev !== undefined && curr !== undefined && Math.abs(curr - prev) > 1) {
+            impacts[`${key}_${y}`] = curr - prev;
+          }
+        }
+      });
+      if (Object.keys(impacts).length > 0) { setShowImpact(impacts); setTimeout(() => setShowImpact({}), 3000); }
+    }
+    prevCalcRef.current = calc;
+  }, [calc]);
 
   // Formatting
   const fmt = (n, d = 0) => n == null || isNaN(n) ? '-' : new Intl.NumberFormat('it-IT', { minimumFractionDigits: d, maximumFractionDigits: d }).format(n);
   const fmtK = (n) => n == null || isNaN(n) ? '-' : Math.abs(n) >= 1e6 ? `${fmt(n/1e6, 2)}M` : Math.abs(n) >= 1e3 ? `${fmt(n/1e3, 0)}k` : fmt(n, 0);
   const fmtPct = (n) => n == null || isNaN(n) ? '-' : `${fmt(n * 100, 1)}%`;
 
-  // Wizard navigation with fade
-  const goToStep = (step) => {
-    if (step < 1 || step > 6) return;
-    setFadeClass('opacity-0');
-    setTimeout(() => {
-      setWizardStep(step);
-      setFadeClass('opacity-100');
-    }, 150);
-  };
-
-  const switchView = (mode) => {
-    setFadeClass('opacity-0');
-    setTimeout(() => {
-      setViewMode(mode);
-      setFadeClass('opacity-100');
-    }, 150);
-  };
-
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // WIZARD COMPONENTS
-  // ═══════════════════════════════════════════════════════════════════════════════
-
-  const WizardProgress = () => (
-    <div className="flex items-center justify-center gap-2 mb-6">
-      {WIZARD_STEPS.map((step, idx) => (
-        <React.Fragment key={step.id}>
-          <button
-            onClick={() => goToStep(step.id)}
-            className={`flex items-center justify-center w-10 h-10 rounded-full font-bold transition-all ${
-              wizardStep === step.id
-                ? 'bg-blue-600 text-white scale-110 shadow-lg'
-                : wizardStep > step.id
-                ? 'bg-green-500 text-white'
-                : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
-            }`}
-          >
-            {wizardStep > step.id ? <CheckCircle size={20} /> : step.id}
-          </button>
-          {idx < WIZARD_STEPS.length - 1 && (
-            <div className={`w-12 h-1 rounded ${wizardStep > step.id ? 'bg-green-500' : 'bg-gray-200'}`} />
-          )}
-        </React.Fragment>
-      ))}
-    </div>
-  );
-
-  const InfoBox = ({ type = 'info', title, children, collapsible = false, id }) => {
-    const isExpanded = !collapsible || expandedHelp[id];
-    const colors = {
-      info: 'bg-blue-50 border-blue-200 text-blue-800',
-      tip: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-      warning: 'bg-red-50 border-red-200 text-red-800',
-      formula: 'bg-purple-50 border-purple-200 text-purple-800'
-    };
-    const icons = {
-      info: <HelpCircle size={18} />,
-      tip: <Lightbulb size={18} />,
-      warning: <AlertTriangle size={18} />,
-      formula: <BookOpen size={18} />
-    };
-
-    return (
-      <div className={`rounded-lg border p-4 ${colors[type]}`}>
-        <div
-          className={`flex items-center gap-2 font-bold ${collapsible ? 'cursor-pointer' : ''}`}
-          onClick={() => collapsible && setExpandedHelp(prev => ({ ...prev, [id]: !prev[id] }))}
-        >
-          {icons[type]}
-          <span>{title}</span>
-          {collapsible && <ChevronRight className={`ml-auto transition-transform ${isExpanded ? 'rotate-90' : ''}`} size={18} />}
-        </div>
-        {isExpanded && <div className="mt-2 text-sm">{children}</div>}
-      </div>
-    );
-  };
-
-  const WizardInputRow = ({ label, values, inputKey, unit = '€', step = 1, help }) => (
-    <div className="mb-6">
-      <div className="flex items-center gap-2 mb-3">
-        <label className="font-medium text-gray-700">{label}</label>
-        {help && (
-          <button onClick={() => setExpandedHelp(prev => ({ ...prev, [inputKey]: !prev[inputKey] }))} className="text-blue-500 hover:text-blue-700">
-            <HelpCircle size={16} />
-          </button>
-        )}
-      </div>
-      <div className="grid grid-cols-3 gap-4">
-        {[0, 1, 2].map(y => (
-          <div key={y}>
-            <div className="text-xs text-gray-500 mb-1 font-medium">Anno {y + 1}</div>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={values[y]}
-                onChange={(e) => updateInput(inputKey, y, parseFloat(e.target.value) || 0)}
-                step={step}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right font-medium"
-              />
-              <span className="text-gray-500 text-sm whitespace-nowrap min-w-[50px]">{unit}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-      {expandedHelp[inputKey] && help && (
-        <div className="mt-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">{help}</div>
-      )}
-    </div>
-  );
-
-  const CalcPreview = ({ label, values, format = 'currency', good }) => (
-    <div className={`flex items-center justify-between p-3 rounded-lg ${good === true ? 'bg-green-50' : good === false ? 'bg-red-50' : 'bg-gray-50'}`}>
-      <span className="text-gray-700">{label}</span>
-      <div className="flex gap-4">
-        {values.map((v, y) => (
-          <div key={y} className="text-right">
-            <div className="text-xs text-gray-500">A{y + 1}</div>
-            <div className={`font-bold ${good === false ? 'text-red-600' : good === true ? 'text-green-600' : ''}`}>
-              {format === 'currency' ? fmtK(v) : format === 'percent' ? fmtPct(v) : format === 'ratio' ? `${fmt(v, 1)}x` : fmt(v, 0)}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // WIZARD STEPS RENDER
-  // ═══════════════════════════════════════════════════════════════════════════════
-
-  const renderWizardStep1 = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-800">Da dove vuoi partire?</h2>
-        <p className="text-gray-600 mt-2">Scegli uno scenario predefinito come punto di partenza. Potrai modificare ogni singolo valore nei prossimi step.</p>
-      </div>
-
-      <div className="grid grid-cols-4 gap-4">
-        {[
-          { id: 1, name: 'WORST', color: 'red', desc: 'Scenario pessimista', icon: '🔴' },
-          { id: 2, name: 'MEDIUM', color: 'yellow', desc: 'Scenario realistico', badge: 'CONSIGLIATO', icon: '🟡' },
-          { id: 3, name: 'BEST', color: 'green', desc: 'Scenario ottimista', icon: '🟢' },
-          { id: 0, name: 'BLANK', color: 'gray', desc: 'Parto da zero', icon: '⚪' }
-        ].map(s => (
-          <button
-            key={s.id}
-            onClick={() => s.id !== 0 && loadScenario(s.id)}
-            className={`p-6 rounded-xl border-2 transition-all hover:scale-105 ${
-              scenarioId === s.id ? `border-${s.color}-500 bg-${s.color}-50 shadow-lg` : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <div className="text-4xl mb-3">{s.icon}</div>
-            <div className="font-bold text-lg">{s.name}</div>
-            <div className="text-sm text-gray-600">{s.desc}</div>
-            {s.badge && <div className="mt-2 text-xs bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full">{s.badge}</div>}
-          </button>
-        ))}
-      </div>
-
-      <InfoBox type="tip" title="Perche 3 scenari?">
-        <p>Gli investitori vogliono vedere che hai pensato a cosa succede se le cose vanno male (WORST), normalmente (MEDIUM), o bene (BEST). Ti consigliamo di partire da MEDIUM e poi adattare.</p>
-      </InfoBox>
-
-      {scenarioId && (
-        <div className="mt-8 p-6 bg-white rounded-xl shadow">
-          <h3 className="font-bold text-lg mb-4">Anteprima Scenario: {SCENARI[scenarioId].name}</h3>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left py-2"></th>
-                <th className="text-right py-2">Anno 1</th>
-                <th className="text-right py-2">Anno 2</th>
-                <th className="text-right py-2">Anno 3</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b"><td className="py-2">Sensori target</td>{inputs.sensori.map((v, i) => <td key={i} className="text-right py-2 font-medium">{fmt(v)}</td>)}</tr>
-              <tr className="border-b"><td className="py-2">Satelliti</td>{inputs.satelliti.map((v, i) => <td key={i} className="text-right py-2 font-medium">{v}</td>)}</tr>
-              <tr className="border-b"><td className="py-2">Team (FTE)</td>{inputs.fte.map((v, i) => <td key={i} className="text-right py-2 font-medium">{v}</td>)}</tr>
-              <tr><td className="py-2 font-bold">Funding totale</td><td colSpan={3} className="text-right py-2 font-bold text-blue-600">{fmtK(calc.finanziamentiAnno.reduce((a, b) => a + b, 0))} €</td></tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-
-  const renderWizardStep2 = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-800">Quanti clienti vuoi raggiungere?</h2>
-        <p className="text-gray-600 mt-2">Inserisci il numero di sensori IoT che prevedi di connettere e il prezzo.</p>
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Target size={20} /> Sensori Target</h3>
-        <WizardInputRow
-          label="Numero sensori target"
-          values={inputs.sensori}
-          inputKey="sensori"
-          unit="n."
-          step={1000}
-          help="Sono i dispositivi IoT (sensori agricoli, ambientali, GPS, tracker, etc.) che useranno la tua connettività satellitare."
-        />
-
-        <InfoBox type="info" title="Benchmark di mercato" collapsible id="sensori-bench">
-          <ul className="list-disc list-inside space-y-1">
-            <li>Startup early-stage: 1.000 - 10.000 sensori Anno 1</li>
-            <li>Crescita tipica: 3-5x anno su anno</li>
-            <li>Leader di mercato (Iridium): ~1M dispositivi dopo 20 anni</li>
-          </ul>
-        </InfoBox>
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><TrendingUp size={20} /> Pricing</h3>
-        <WizardInputRow
-          label="Canone mensile per sensore"
-          values={inputs.prezzo}
-          inputKey="prezzo"
-          unit="€/mese"
-          step={0.5}
-          help="Il prezzo che ogni cliente paga ogni mese per connettere un sensore."
-        />
-
-        <InfoBox type="info" title="Come scegliere il prezzo?" collapsible id="prezzo-bench">
-          <ul className="list-disc list-inside space-y-1">
-            <li><strong>Iridium:</strong> 12-15€/mese (leader storico, caro)</li>
-            <li><strong>Globalstar:</strong> 8-12€/mese (alternativa)</li>
-            <li><strong>Starlink IoT:</strong> 5-8€/mese (nuovo entrante)</li>
-            <li><strong>IL TUO VANTAGGIO:</strong> 2-4€/mese grazie ai nanosatelliti!</li>
-          </ul>
-          <p className="mt-2">Il prezzo può SCENDERE negli anni per economie di scala e battere la concorrenza.</p>
-        </InfoBox>
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><AlertTriangle size={20} /> Churn (abbandono)</h3>
-        <WizardInputRow
-          label="Churn mensile"
-          values={inputs.churn.map(c => c * 100)}
-          inputKey="churn"
-          unit="%"
-          step={0.5}
-          help="Percentuale di clienti che smette di usare il servizio ogni mese."
-        />
-
-        <InfoBox type="warning" title="Attenzione al Churn!">
-          <p>Un churn del 2% significa che su 100 clienti, 2 se ne vanno ogni mese.</p>
-          <ul className="list-disc list-inside mt-2">
-            <li><span className="text-green-600 font-bold">Eccellente:</span> &lt; 1% mensile</li>
-            <li><span className="text-yellow-600 font-bold">Buono:</span> 1-2% mensile</li>
-            <li><span className="text-red-600 font-bold">Preoccupante:</span> &gt; 3% mensile</li>
-          </ul>
-        </InfoBox>
-      </div>
-
-      <div className="bg-gray-50 rounded-xl p-6">
-        <h3 className="font-bold text-lg mb-4">Valori Calcolati</h3>
-        <div className="space-y-3">
-          <CalcPreview label="Sensori fine anno" values={calc.sensoriFine} format="number" />
-          <CalcPreview label="Ricavi annui" values={calc.ricaviTotali} format="currency" />
-          <CalcPreview label="Crescita YoY" values={calc.crescitaYoY} format="percent" good={calc.crescitaYoY[2] > 0.5} />
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderWizardStep3 = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-800">La tua costellazione di satelliti</h2>
-        <p className="text-gray-600 mt-2">Definisci quanti satelliti lanciare e i relativi costi.</p>
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Satellite size={20} /> Numero Satelliti</h3>
-        <WizardInputRow
-          label="Satelliti da lanciare ogni anno"
-          values={inputs.satelliti}
-          inputKey="satelliti"
-          unit="n."
-          step={1}
-          help="Il numero di nanosatelliti che prevedi di produrre e lanciare ogni anno."
-        />
-
-        <InfoBox type="info" title="Quanti satelliti servono?" collapsible id="sat-bench">
-          <ul className="list-disc list-inside space-y-1">
-            <li><strong>4-6 satelliti:</strong> copertura parziale, latenza alta (ore)</li>
-            <li><strong>12-20 satelliti:</strong> buona copertura, latenza media (minuti)</li>
-            <li><strong>50+ satelliti:</strong> copertura globale, bassa latenza</li>
-          </ul>
-          <p className="mt-2">Per IoT (dati piccoli, non urgenti) bastano pochi satelliti.</p>
-        </InfoBox>
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="font-bold text-lg mb-6">Costi Satelliti</h3>
-        <WizardInputRow
-          label="Costo produzione per satellite"
-          values={inputs.costoSat}
-          inputKey="costoSat"
-          unit="€"
-          step={5000}
-          help="Costo di produzione/assemblaggio di ogni singolo satellite (3U CubeSat)."
-        />
-        <WizardInputRow
-          label="Costo lancio per satellite"
-          values={inputs.costoLancio}
-          inputKey="costoLancio"
-          unit="€"
-          step={1000}
-          help="Costo del lancio in rideshare (condivisione con altri payload)."
-        />
-        <WizardInputRow
-          label="Vita utile satellite"
-          values={inputs.vitaSatellite}
-          inputKey="vitaSatellite"
-          unit="anni"
-          step={1}
-          help="Quanto tempo un satellite funziona prima di diventare inutilizzabile. Determina l'ammortamento."
-        />
-
-        <InfoBox type="formula" title="Benchmark costi nanosatelliti (3U CubeSat)">
-          <ul className="list-disc list-inside space-y-1">
-            <li><strong>Produzione:</strong> 50.000 - 150.000 €</li>
-            <li><strong>Lancio rideshare:</strong> 10.000 - 30.000 €</li>
-          </ul>
-          <p className="mt-2">I costi scendono negli anni grazie a economie di scala e ottimizzazione.</p>
-        </InfoBox>
-      </div>
-
-      <div className="bg-gray-50 rounded-xl p-6">
-        <h3 className="font-bold text-lg mb-4">Valori Calcolati</h3>
-        <div className="space-y-3">
-          <CalcPreview label="Satelliti totali (cumulativo)" values={calc.satTotali} format="number" />
-          <CalcPreview label="CAPEX satelliti" values={calc.capexSatelliti} format="currency" />
-          <CalcPreview label="Ammortamento annuo" values={calc.ammTotaleAnno} format="currency" />
-          <CalcPreview label="Sensori per satellite" values={calc.sensoriFine.map((s, y) => calc.satTotali[y] > 0 ? s / calc.satTotali[y] : 0)} format="number" />
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderWizardStep4 = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-800">Quanto costa acquisire un cliente?</h2>
-        <p className="text-gray-600 mt-2">Il CAC (Customer Acquisition Cost) è fondamentale per la sostenibilità del business.</p>
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Target size={20} /> CAC - Customer Acquisition Cost</h3>
-        <WizardInputRow
-          label="CAC per sensore"
-          values={inputs.cac}
-          inputKey="cac"
-          unit="€"
-          step={5}
-          help="Quanto spendi IN MEDIA per acquisire UN nuovo cliente/sensore. Include: marketing, vendite, promozioni, sconti, demo, etc."
-        />
-
-        <InfoBox type="info" title="Come funziona il CAC?" collapsible id="cac-info">
-          <p><strong>Esempio:</strong> Se spendi 50.000€ in marketing e acquisisci 2.000 nuovi clienti, il tuo CAC = 50.000 / 2.000 = 25€</p>
-          <p className="mt-2"><strong>Perché il CAC scende?</strong></p>
-          <ul className="list-disc list-inside space-y-1">
-            <li>Brand awareness: più ti conoscono, meno devi spendere</li>
-            <li>Passaparola: clienti soddisfatti portano altri clienti</li>
-            <li>Ottimizzazione: impari quali canali funzionano meglio</li>
-          </ul>
-        </InfoBox>
-      </div>
-
-      <div className="bg-yellow-50 rounded-xl p-6 border-2 border-yellow-200">
-        <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-yellow-800">
-          <Lightbulb size={20} /> LTV/CAC: LA METRICA PIÙ IMPORTANTE
-        </h3>
-        <p className="mb-4 text-yellow-900">Dice se il tuo business model funziona:</p>
-        <div className="grid grid-cols-4 gap-2 text-center mb-4">
-          <div className="p-3 bg-red-200 rounded-lg">
-            <div className="font-bold">&lt;1x</div>
-            <div className="text-xs">PERDI SOLDI</div>
-          </div>
-          <div className="p-3 bg-yellow-200 rounded-lg">
-            <div className="font-bold">1-3x</div>
-            <div className="text-xs">RISCHIOSO</div>
-          </div>
-          <div className="p-3 bg-green-200 rounded-lg">
-            <div className="font-bold">≥3x</div>
-            <div className="text-xs">SANO</div>
-          </div>
-          <div className="p-3 bg-green-300 rounded-lg">
-            <div className="font-bold">&gt;5x</div>
-            <div className="text-xs">ECCELLENTE</div>
-          </div>
-        </div>
-        <CalcPreview label="Il tuo LTV/CAC" values={calc.ltvCac} format="ratio" good={calc.ltvCac[2] >= 3} />
-      </div>
-
-      <div className="bg-gray-50 rounded-xl p-6">
-        <h3 className="font-bold text-lg mb-4">KPI Acquisizione</h3>
-        <div className="space-y-3">
-          <CalcPreview label="CAC Totale (spesa marketing)" values={calc.cacTotale} format="currency" />
-          <CalcPreview label="LTV (valore lifetime cliente)" values={calc.ltv} format="currency" />
-          <CalcPreview label="CAC Payback (mesi)" values={calc.cacPayback} format="number" good={calc.cacPayback[2] < 12} />
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderWizardStep5 = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-800">Quante persone ti servono?</h2>
-        <p className="text-gray-600 mt-2">Definisci la crescita del team e i costi del personale.</p>
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><BookOpen size={20} /> Team</h3>
-        <WizardInputRow
-          label="FTE totali (Full-Time Equivalent)"
-          values={inputs.fte}
-          inputKey="fte"
-          unit="persone"
-          step={1}
-          help="FTE = Full-Time Equivalent = persona a tempo pieno. 2 persone part-time (50%) = 1 FTE"
-        />
-
-        <InfoBox type="info" title="Team tipico per startup space-tech" collapsible id="team-bench">
-          <ul className="list-disc list-inside space-y-1">
-            <li><strong>Anno 1:</strong> 5-10 persone (founders + core team)</li>
-            <li><strong>Anno 2:</strong> 15-25 persone (scaling)</li>
-            <li><strong>Anno 3:</strong> 25-50 persone (crescita)</li>
-          </ul>
-          <p className="mt-2"><strong>Composizione suggerita:</strong></p>
-          <ul className="list-disc list-inside space-y-1">
-            <li>40% Engineering (SW + HW satelliti)</li>
-            <li>20% Operations (ground station, supporto)</li>
-            <li>20% Sales & Marketing</li>
-            <li>20% G&A (finance, HR, legal)</li>
-          </ul>
-        </InfoBox>
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="font-bold text-lg mb-6">Costi Personale</h3>
-        <WizardInputRow
-          label="RAL media (Retribuzione Annua Lorda)"
-          values={inputs.ral}
-          inputKey="ral"
-          unit="€/anno"
-          step={1000}
-          help="Stipendio lordo annuale medio del team."
-        />
-        <WizardInputRow
-          label="Welfare % (costi aggiuntivi)"
-          values={inputs.welfare.map(w => w * 100)}
-          inputKey="welfare"
-          unit="%"
-          step={1}
-          help="Costi aggiuntivi per l'azienda: contributi previdenziali, assicurazioni, benefit, formazione."
-        />
-
-        <InfoBox type="formula" title="Calcolo costo reale">
-          <p><strong>COSTO REALE = RAL × (1 + Welfare%)</strong></p>
-          <p className="mt-1">Es: 50.000€ × 1.15 = 57.500€ costo azienda per persona</p>
-          <p className="mt-2"><strong>Benchmark RAL settore tech Italia:</strong></p>
-          <ul className="list-disc list-inside">
-            <li>Junior: 30-40k€</li>
-            <li>Mid: 45-60k€</li>
-            <li>Senior: 60-80k€</li>
-            <li>Lead/Manager: 70-100k€</li>
-          </ul>
-        </InfoBox>
-      </div>
-
-      <div className="bg-gray-50 rounded-xl p-6">
-        <h3 className="font-bold text-lg mb-4">Valori Calcolati</h3>
-        <div className="space-y-3">
-          <CalcPreview label="Costo personale totale" values={calc.costoPersonale} format="currency" />
-          <CalcPreview label="Costo per FTE" values={calc.costoPersonale.map((c, y) => inputs.fte[y] > 0 ? c / inputs.fte[y] : 0)} format="currency" />
-          <CalcPreview label="Revenue per employee" values={calc.revPerEmployee} format="currency" good={calc.revPerEmployee[2] > 100000} />
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderWizardStep6 = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-800">Come finanzierai l'azienda?</h2>
-        <p className="text-gray-600 mt-2">Definisci le fonti di finanziamento per ogni anno.</p>
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="font-bold text-lg mb-6">Fonti di Finanziamento</h3>
-
-        <WizardInputRow
-          label="Capitale Founders"
-          values={inputs.capitaleFounders}
-          inputKey="capitaleFounders"
-          unit="€"
-          step={10000}
-          help="Soldi che mettete voi fondatori. Dimostra 'skin in the game' agli investitori. Tipico: 50-200k€ complessivi."
-        />
-
-        <WizardInputRow
-          label="Seed Round"
-          values={inputs.seed}
-          inputKey="seed"
-          unit="€"
-          step={50000}
-          help="Primo investimento esterno, da angel investor o fondi seed. Serve per MVP, primi clienti, validazione. Tipico: 200k - 1M€."
-        />
-
-        <WizardInputRow
-          label="Series A"
-          values={inputs.seriesA}
-          inputKey="seriesA"
-          unit="€"
-          step={100000}
-          help="Round di crescita, da fondi VC strutturati. Serve per scalare vendite, team, infrastruttura. Tipico: 1-5M€."
-        />
-
-        <WizardInputRow
-          label="Grants pubblici"
-          values={inputs.grants}
-          inputKey="grants"
-          unit="€"
-          step={10000}
-          help="Contributi pubblici A FONDO PERDUTO. Fonti: ESA, Horizon Europe, MISE, regioni, ASI. Pro: Non diluiscono. Contro: Lunghi, burocratici."
-        />
-
-        <InfoBox type="tip" title="Tipi di finanziamento spiegati" collapsible id="funding-info">
-          <div className="space-y-3">
-            <div><strong>Capitale Founders:</strong> I vostri soldi personali. Dimostra impegno agli investitori.</div>
-            <div><strong>Seed Round:</strong> Primo round esterno (angel/fondi seed). Diluizione tipica: 10-20%</div>
-            <div><strong>Series A:</strong> Round di crescita da VC. Diluizione tipica: 15-25%</div>
-            <div><strong>Grants:</strong> Soldi gratis! Non devi restituirli né cedere quote.</div>
-          </div>
-        </InfoBox>
-      </div>
-
-      <div className={`rounded-xl p-6 ${calc.cassaFine[0] < 0 ? 'bg-red-50 border-2 border-red-300' : 'bg-gray-50'}`}>
-        <h3 className="font-bold text-lg mb-4">Riepilogo Finanziario</h3>
-        <div className="space-y-3">
-          <CalcPreview label="Funding totale anno" values={calc.finanziamentiAnno} format="currency" />
-          <CalcPreview label="EBITDA" values={calc.ebitda} format="currency" good={calc.ebitda[2] > 0} />
-          <CalcPreview label="Cassa fine anno" values={calc.cassaFine} format="currency" good={calc.cassaFine.every(c => c > 0)} />
-          <CalcPreview label="Runway (mesi)" values={calc.runway.map(r => Math.min(r, 99))} format="number" good={calc.runway[0] >= 12} />
-        </div>
-
-        {calc.cassaFine[0] < 0 && (
-          <InfoBox type="warning" title="Attenzione: Cassa negativa Anno 1!">
-            <p>Con questi parametri, a fine Anno 1 avresti cassa negativa. I soldi finiscono PRIMA di fine anno!</p>
-            <p className="mt-2"><strong>Soluzioni:</strong></p>
-            <ul className="list-disc list-inside">
-              <li>Aumenta il Seed round</li>
-              <li>Riduci i costi (meno FTE, meno satelliti Anno 1)</li>
-              <li>Cerca più grants</li>
-            </ul>
-          </InfoBox>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderWizardContent = () => {
-    switch (wizardStep) {
-      case 1: return renderWizardStep1();
-      case 2: return renderWizardStep2();
-      case 3: return renderWizardStep3();
-      case 4: return renderWizardStep4();
-      case 5: return renderWizardStep5();
-      case 6: return renderWizardStep6();
-      default: return renderWizardStep1();
-    }
-  };
-
-  const renderWizard = () => (
-    <div className={`transition-opacity duration-150 ${fadeClass}`}>
-      <div className="max-w-4xl mx-auto">
-        <WizardProgress />
-
-        <div className="bg-blue-50 rounded-t-xl p-4 border-b border-blue-100">
-          <div className="flex items-center gap-3">
-            {React.createElement(WIZARD_STEPS[wizardStep - 1].icon, { size: 24, className: 'text-blue-600' })}
-            <div>
-              <h2 className="font-bold text-lg text-blue-900">Step {wizardStep} di 6: {WIZARD_STEPS[wizardStep - 1].title}</h2>
-              <p className="text-blue-700 text-sm">{WIZARD_STEPS[wizardStep - 1].subtitle}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-b-xl shadow-lg p-6 mb-6">
-          {renderWizardContent()}
-        </div>
-
-        <div className="flex justify-between items-center">
-          <button
-            onClick={() => goToStep(wizardStep - 1)}
-            disabled={wizardStep === 1}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition ${
-              wizardStep === 1 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-            }`}
-          >
-            <ChevronLeft size={20} /> Indietro
-          </button>
-
-          {wizardStep < 6 ? (
-            <button
-              onClick={() => goToStep(wizardStep + 1)}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition"
-            >
-              Avanti <ChevronRight size={20} />
-            </button>
-          ) : (
-            <button
-              onClick={() => switchView('dashboard')}
-              className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition"
-            >
-              <CheckCircle size={20} /> Completa e vai alla Dashboard
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // DASHBOARD COMPONENTS (simplified versions)
-  // ═══════════════════════════════════════════════════════════════════════════════
-
+  // Components
   const InputCell = ({ value, onChange, step = 1 }) => (
     <input type="number" value={value} onChange={(e) => onChange(parseFloat(e.target.value) || 0)} step={step}
       className="w-full px-2 py-1 text-right font-medium text-blue-700 bg-yellow-100 border border-yellow-400 rounded focus:ring-2 focus:ring-blue-500" />
@@ -971,7 +474,7 @@ export default function NanoSatBusinessPlanApp() {
     );
   };
 
-  // Dashboard render
+  // DASHBOARD
   const renderDashboard = () => (
     <div className="space-y-4 p-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1013,7 +516,7 @@ export default function NanoSatBusinessPlanApp() {
         <h3 className="font-bold mb-3">Semafori Anno 3</h3>
         <div className="grid grid-cols-5 gap-2">
           {[
-            { label: 'Break-even', ok: calc.breakevenOk[2], value: calc.breakevenOk[2] ? 'Si' : 'No' },
+            { label: 'Break-even', ok: calc.breakevenOk[2], value: calc.breakevenOk[2] ? 'Sì' : 'No' },
             { label: 'LTV/CAC ≥3x', ok: calc.ltvCac[2] >= 3, value: `${fmt(calc.ltvCac[2], 1)}x` },
             { label: 'EBITDA > 0', ok: calc.ebitda[2] > 0, value: fmtK(calc.ebitda[2]) },
             { label: 'Runway ≥18m', ok: calc.runway[2] >= 18, value: calc.runway[2] >= 99 ? '∞' : `${fmt(calc.runway[2], 0)}m` },
@@ -1030,10 +533,658 @@ export default function NanoSatBusinessPlanApp() {
     </div>
   );
 
-  // Render sheet based on activeSheet
+  // SIMULATORE
+  const renderSimulator = () => (
+    <div className="space-y-4 p-4">
+      <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white p-4 rounded-lg">
+        <h3 className="font-bold flex items-center gap-2"><Sliders size={20} /> SIMULATORE RAPIDO</h3>
+        <p className="text-blue-200 text-sm">Modifica i parametri chiave e vedi l'impatto in tempo reale</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-lg shadow p-4">
+          <h4 className="font-bold text-gray-800 mb-3">Parametri Chiave Anno 3</h4>
+          <div className="space-y-4">
+            {[
+              { label: 'Sensori Target', key: 'sensori', value: inputs.sensori[2], min: 10000, max: 500000, step: 10000 },
+              { label: 'Prezzo €/mese', key: 'prezzo', value: inputs.prezzo[2], min: 1, max: 10, step: 0.5 },
+              { label: 'Churn mensile %', key: 'churn', value: inputs.churn[2] * 100, min: 0.5, max: 5, step: 0.5, isPct: true },
+              { label: 'CAC €', key: 'cac', value: inputs.cac[2], min: 5, max: 50, step: 5 },
+              { label: 'N. Satelliti', key: 'satelliti', value: inputs.satelliti[2], min: 2, max: 30, step: 2 },
+              { label: 'FTE Team', key: 'fte', value: inputs.fte[2], min: 5, max: 60, step: 5 }
+            ].map(param => (
+              <div key={param.key} className="flex items-center gap-3">
+                <label className="w-32 text-sm text-gray-600">{param.label}</label>
+                <input type="range" min={param.min} max={param.max} step={param.step} value={param.value} 
+                  onChange={(e) => updateInput(param.key, 2, parseFloat(e.target.value))} className="flex-1" />
+                <span className="w-20 text-right font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+                  {param.isPct ? `${param.value.toFixed(1)}%` : fmt(param.value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <h4 className="font-bold text-gray-800 mb-3">Impatto sui KPI Principali</h4>
+          <div className="space-y-3">
+            {[
+              { label: 'Ricavi A3', value: calc.ricaviTotali[2], target: 3000000, key: 'ricavi' },
+              { label: 'EBITDA A3', value: calc.ebitda[2], target: 0, key: 'ebitda', isZeroTarget: true },
+              { label: 'LTV/CAC', value: calc.ltvCac[2], target: 3, key: 'ltvCac', isRatio: true },
+              { label: 'Runway (mesi)', value: Math.min(calc.runway[2], 36), target: 18, key: 'runway' },
+              { label: 'Rule of 40 %', value: calc.rule40[2], target: 40, key: 'rule40' },
+              { label: 'Valutazione', value: calc.valMedia[2], target: 10000000, key: 'val' }
+            ].map(kpi => {
+              const isGood = kpi.isZeroTarget ? kpi.value >= 0 : kpi.isRatio ? kpi.value >= kpi.target : kpi.value >= kpi.target;
+              const pct = kpi.isZeroTarget ? (kpi.value >= 0 ? 100 : 50) : Math.min((kpi.value / kpi.target) * 100, 150);
+              return (
+                <div key={kpi.key} className="flex items-center gap-2">
+                  <span className="w-24 text-sm">{kpi.label}</span>
+                  <div className="flex-1 bg-gray-200 rounded-full h-4 overflow-hidden">
+                    <div className={`h-full transition-all ${isGood ? 'bg-green-500' : 'bg-red-400'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                  </div>
+                  <span className={`w-20 text-right font-bold text-sm ${isGood ? 'text-green-600' : 'text-red-600'}`}>
+                    {kpi.isRatio ? `${fmt(kpi.value, 1)}x` : fmtK(kpi.value)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <h4 className="font-bold text-yellow-800 flex items-center gap-2"><Lightbulb size={18} /> Suggerimenti</h4>
+        <div className="mt-2 space-y-2 text-sm">
+          {calc.ltvCac[2] < 3 && <div className="flex items-start gap-2"><ArrowUpRight className="text-red-500 flex-shrink-0" size={16} /><span><b>LTV/CAC sotto 3x:</b> Riduci CAC ({fmt(inputs.cac[2])}€) o churn ({fmt(inputs.churn[2]*100,1)}%)</span></div>}
+          {calc.ebitda[2] < 0 && <div className="flex items-start gap-2"><ArrowUpRight className="text-red-500 flex-shrink-0" size={16} /><span><b>EBITDA negativo:</b> Aumenta sensori o prezzo, oppure riduci team</span></div>}
+          {calc.runway[2] < 18 && calc.runway[2] < 99 && <div className="flex items-start gap-2"><ArrowUpRight className="text-orange-500 flex-shrink-0" size={16} /><span><b>Runway corto:</b> Riduci burn rate o raccogli più capitale</span></div>}
+          {calc.ltvCac[2] >= 3 && calc.ebitda[2] >= 0 && <div className="flex items-start gap-2"><CheckCircle className="text-green-500 flex-shrink-0" size={16} /><span><b>Ottimo!</b> KPI principali in target.</span></div>}
+        </div>
+      </div>
+    </div>
+  );
+
+  // KPI CLASSICI
+  const renderKPIClassici = () => (
+    <div className="overflow-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-blue-900 text-white sticky top-0">
+          <tr><th className="p-2 text-left">KPI</th><th className="p-2 w-20">A1</th><th className="p-2 w-20">A2</th><th className="p-2 w-20">A3</th><th className="p-2 text-left">COS'È</th><th className="p-2 text-left">TARGET</th><th className="p-2 w-8"></th></tr>
+        </thead>
+        <tbody>
+          {[
+            { key: 'grossMargin', values: calc.margineLordoPct, format: 'percent' },
+            { key: 'ebitdaMargin', values: calc.ebitdaPct, format: 'percent' },
+            { key: 'netMargin', values: calc.utilePct, format: 'percent' },
+            { key: 'revenueGrowth', values: calc.crescitaYoY, format: 'percent' },
+            { key: 'fcf', values: calc.fcf, format: 'currency' },
+            { key: 'runway', values: calc.runway.map(r => Math.min(r, 99)), format: 'number' }
+          ].map(row => {
+            const info = KPI_INFO[row.key];
+            return (
+              <tr key={row.key} className="border-b hover:bg-gray-50">
+                <td className="p-2 font-medium">{info?.name}</td>
+                {[0,1,2].map(y => <td key={y} className="p-2"><CalcCell value={row.values[y]} format={row.format} /></td>)}
+                <td className="p-2 text-xs text-gray-600">{info?.cosa?.substring(0, 60)}...</td>
+                <td className="p-2 text-xs font-medium text-green-700">{info?.target}</td>
+                <td className="p-2"><button onClick={() => setSelectedKPI(row.key)} className="text-blue-500 hover:text-blue-700"><Info size={16} /></button></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  // KPI AVANZATI
+  const renderKPIAvanzati = () => (
+    <div className="overflow-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-blue-900 text-white sticky top-0">
+          <tr><th className="p-2 text-left">KPI</th><th className="p-2 w-20">A1</th><th className="p-2 w-20">A2</th><th className="p-2 w-20">A3</th><th className="p-2 text-left">COS'È</th><th className="p-2 text-left">TARGET</th><th className="p-2 w-8"></th></tr>
+        </thead>
+        <tbody>
+          {[
+            { key: 'mrr', values: calc.mrr, format: 'currency' },
+            { key: 'arr', values: calc.arr, format: 'currency' },
+            { key: 'ltv', values: calc.ltv, format: 'currency' },
+            { key: 'ltvCac', values: calc.ltvCac, format: 'decimal', highlight: true },
+            { key: 'cacPayback', values: calc.cacPayback, format: 'decimal' },
+            { key: 'churnAnnuo', values: calc.churnAnnuo, format: 'percent' },
+            { key: 'rule40', values: calc.rule40.map(r => r/100), format: 'percent' },
+            { key: 'revPerEmployee', values: calc.revPerEmployee, format: 'currency' },
+            { key: 'revPerSat', values: calc.revPerSat, format: 'currency' }
+          ].map(row => {
+            const info = KPI_INFO[row.key];
+            const isLtvCac = row.key === 'ltvCac';
+            return (
+              <tr key={row.key} className={`border-b hover:bg-gray-50 ${isLtvCac ? 'bg-yellow-50' : ''}`}>
+                <td className={`p-2 font-medium ${isLtvCac ? 'font-bold' : ''}`}>{isLtvCac ? '⭐ ' : ''}{info?.name}</td>
+                {[0,1,2].map(y => (
+                  <td key={y} className="p-2">
+                    {isLtvCac ? (
+                      <div className={`px-2 py-1 text-center font-bold rounded ${row.values[y] >= 3 ? 'bg-green-300' : row.values[y] >= 2 ? 'bg-yellow-300' : 'bg-red-300'}`}>
+                        {fmt(row.values[y], 1)}x
+                      </div>
+                    ) : <CalcCell value={row.values[y]} format={row.format} />}
+                  </td>
+                ))}
+                <td className="p-2 text-xs text-gray-600">{info?.cosa?.substring(0, 60)}...</td>
+                <td className="p-2 text-xs font-medium text-green-700">{info?.target}</td>
+                <td className="p-2"><button onClick={() => setSelectedKPI(row.key)} className="text-blue-500 hover:text-blue-700"><Info size={16} /></button></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  // VALUATION
+  const renderValuation = () => (
+    <table className="w-full text-sm"><TableHeader title="VALUTAZIONE" /><tbody>
+      <SectionRow title="METODO 1: REVENUE MULTIPLE" />
+      <DataRow label="Ricavi" type="CALC" unit="€" values={calc.ricaviTotali} />
+      <DataRow label="Revenue Multiple" type="INPUT" unit="x" values={inputs.revenueMultiple} inputKey="revenueMultiple" format="number" />
+      <DataRow label="VALUTAZIONE (Rev Multiple)" type="CALC" unit="€" values={calc.valRevMultiple} highlight />
+      <SectionRow title="METODO 2: ARR MULTIPLE" />
+      <DataRow label="ARR" type="CALC" unit="€" values={calc.arr} />
+      <DataRow label="ARR Multiple" type="INPUT" unit="x" values={inputs.arrMultiple} inputKey="arrMultiple" format="decimal" step={0.5} />
+      <DataRow label="VALUTAZIONE (ARR Multiple)" type="CALC" unit="€" values={calc.valArrMultiple} highlight />
+      <SectionRow title="METODO 3: DCF" />
+      <DataRow label="Free Cash Flow" type="CALC" unit="€" values={calc.fcf} />
+      <DataRow label="WACC" type="INPUT" unit="%" values={inputs.wacc.map(w => w * 100)} inputKey="wacc" format="number" />
+      <tr className="border-b"><td className="px-3 py-1">Terminal Value</td><td></td><td></td><td colSpan={3} className="px-2 py-1 text-right">{fmtK(calc.terminalValue)} €</td></tr>
+      <tr className="border-b"><td className="px-3 py-1">VALUTAZIONE DCF</td><td></td><td></td><td colSpan={3} className="px-2 py-1"><CalcCell value={calc.valDcf} highlight /></td></tr>
+      <SectionRow title="VALUTAZIONE MEDIA" />
+      <DataRow label="VALUTAZIONE MEDIA" type="CALC" unit="€" values={calc.valMedia} highlight />
+      <DataRow label="Diluizione founders (stima)" type="CALC" unit="%" values={calc.diluizioneFounders} format="percent" />
+    </tbody></table>
+  );
+
+  // SENSITIVITY
+  const renderSensitivity = () => {
+    // Calcoli per Tornado Chart
+    const baseRicavi = calc.ricaviTotali[2];
+    const baseCAPEX = calc.capexTotale[2];
+    const tornadoData = [
+      { name: 'Sensori A3', base: inputs.sensori[2], low: inputs.sensori[2] * 0.8, high: inputs.sensori[2] * 1.2, 
+        impactLow: inputs.sensori[2] * 0.8 * inputs.prezzo[2] * 12, impactHigh: inputs.sensori[2] * 1.2 * inputs.prezzo[2] * 12 },
+      { name: 'Prezzo A3', base: inputs.prezzo[2], low: inputs.prezzo[2] * 0.8, high: inputs.prezzo[2] * 1.2,
+        impactLow: inputs.sensori[2] * inputs.prezzo[2] * 0.8 * 12, impactHigh: inputs.sensori[2] * inputs.prezzo[2] * 1.2 * 12 },
+      { name: 'Costo Sat A3', base: inputs.costoSat[2], low: inputs.costoSat[2] * 0.8, high: inputs.costoSat[2] * 1.2,
+        impactLow: inputs.satelliti[2] * inputs.costoSat[2] * 0.8, impactHigh: inputs.satelliti[2] * inputs.costoSat[2] * 1.2 },
+      { name: 'N. Satelliti A3', base: inputs.satelliti[2], low: Math.round(inputs.satelliti[2] * 0.8), high: Math.round(inputs.satelliti[2] * 1.2),
+        impactLow: Math.round(inputs.satelliti[2] * 0.8) * (inputs.costoSat[2] + inputs.costoLancio[2]), impactHigh: Math.round(inputs.satelliti[2] * 1.2) * (inputs.costoSat[2] + inputs.costoLancio[2]) },
+      { name: 'CAC A3', base: inputs.cac[2], low: inputs.cac[2] * 0.8, high: inputs.cac[2] * 1.2,
+        impactLow: calc.sensoriNuovi[2] * inputs.cac[2] * 0.8, impactHigh: calc.sensoriNuovi[2] * inputs.cac[2] * 1.2 },
+      { name: 'FTE A3', base: inputs.fte[2], low: Math.round(inputs.fte[2] * 0.8), high: Math.round(inputs.fte[2] * 1.2),
+        impactLow: Math.round(inputs.fte[2] * 0.8) * inputs.ral[2] * 1.15, impactHigh: Math.round(inputs.fte[2] * 1.2) * inputs.ral[2] * 1.15 },
+    ];
+
+    // Break-even analysis
+    const margineLordo = 0.75; // 75% margine lordo stimato
+    const costiFissi = calc.totCostiOperativi[2];
+    const breakEvenData = [1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0].map(prezzo => {
+      const contribuzione = prezzo * 12 * margineLordo;
+      const breakEvenSensori = costiFissi / contribuzione;
+      const target = inputs.sensori[2];
+      return { prezzo, contribuzione, breakEvenSensori, raggiungibile: breakEvenSensori <= target };
+    });
+
+    return (
+    <div className="space-y-6 p-4">
+      {/* TABELLA 1: Ricavi */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="font-bold mb-4 flex items-center gap-2"><Target size={18} /> TABELLA 1: Ricavi A3 (Sensori × Prezzo)</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr><th className="p-2 bg-blue-900 text-white">Sensori \ Prezzo</th>
+              {[1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5].map(p => <th key={p} className="p-2 bg-blue-900 text-white">{p}€</th>)}</tr></thead>
+            <tbody>
+              {[25000, 50000, 75000, 100000, 150000, 200000, 250000].map(s => (
+                <tr key={s}>
+                  <td className="p-2 bg-gray-100 font-medium">{fmt(s)}</td>
+                  {[1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5].map(p => {
+                    const ricavi = s * p * 12;
+                    const isBase = s === inputs.sensori[2] && Math.abs(p - inputs.prezzo[2]) < 0.1;
+                    return <td key={p} className={`p-2 text-right ${isBase ? 'bg-yellow-200 font-bold ring-2 ring-blue-500' : 'bg-green-50'}`}>{fmtK(ricavi)}</td>;
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* TABELLA 2: LTV/CAC */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="font-bold mb-4 flex items-center gap-2"><TrendingUp size={18} /> TABELLA 2: LTV/CAC (CAC × Churn mensile)</h3>
+        <p className="text-xs text-gray-500 mb-2">LTV calcolato con prezzo {inputs.prezzo[2]}€/mese</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr><th className="p-2 bg-blue-900 text-white">CAC \ Churn</th>
+              {[0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0].map(c => <th key={c} className="p-2 bg-blue-900 text-white">{c}%</th>)}</tr></thead>
+            <tbody>
+              {[10, 15, 20, 25, 30, 40, 50].map(cac => (
+                <tr key={cac}>
+                  <td className="p-2 bg-gray-100 font-medium">{cac}€</td>
+                  {[0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0].map(c => {
+                    const ltv = inputs.prezzo[2] / (c / 100);
+                    const ratio = ltv / cac;
+                    const isBase = cac === inputs.cac[2] && Math.abs(c - inputs.churn[2] * 100) < 0.2;
+                    return <td key={c} className={`p-2 text-center font-medium ${isBase ? 'ring-2 ring-blue-500' : ''} ${ratio >= 3 ? 'bg-green-200' : ratio >= 2 ? 'bg-yellow-200' : 'bg-red-200'}`}>{ratio.toFixed(1)}x</td>;
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-gray-500 mt-2">🟢 Verde ≥3x | 🟡 Giallo 2-3x | 🔴 Rosso &lt;2x</p>
+      </div>
+
+      {/* TABELLA 3: CAPEX */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="font-bold mb-4 flex items-center gap-2"><Satellite size={18} /> TABELLA 3: CAPEX Satelliti (N. Satelliti × Costo produzione)</h3>
+        <p className="text-xs text-gray-500 mb-2">Escluso costo lancio ({fmtK(inputs.costoLancio[2])} per satellite)</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr><th className="p-2 bg-blue-900 text-white">Satelliti \ Costo</th>
+              {[40000, 50000, 60000, 70000, 80000, 90000, 100000].map(c => <th key={c} className="p-2 bg-blue-900 text-white">{fmtK(c)}</th>)}</tr></thead>
+            <tbody>
+              {[6, 10, 14, 20, 24, 30, 40].map(sat => (
+                <tr key={sat}>
+                  <td className="p-2 bg-gray-100 font-medium">{sat} sat.</td>
+                  {[40000, 50000, 60000, 70000, 80000, 90000, 100000].map(costo => {
+                    const capex = sat * costo;
+                    const totSat = inputs.satelliti[0] + inputs.satelliti[1] + inputs.satelliti[2];
+                    const isBase = sat === totSat && costo === inputs.costoSat[2];
+                    return <td key={costo} className={`p-2 text-right ${isBase ? 'bg-yellow-200 font-bold ring-2 ring-blue-500' : 'bg-green-50'}`}>{fmtK(capex)}</td>;
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* TORNADO CHART */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="font-bold mb-4 flex items-center gap-2"><Sliders size={18} /> TORNADO CHART: Impatto variabili ±20%</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="p-2 bg-blue-900 text-white text-left">Variabile</th>
+                <th className="p-2 bg-blue-900 text-white">Valore Base</th>
+                <th className="p-2 bg-blue-900 text-white">-20%</th>
+                <th className="p-2 bg-blue-900 text-white">+20%</th>
+                <th className="p-2 bg-blue-900 text-white">Impatto -20%</th>
+                <th className="p-2 bg-blue-900 text-white">Impatto +20%</th>
+                <th className="p-2 bg-blue-900 text-white">Delta</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tornadoData.map((row, i) => (
+                <tr key={i} className={i % 2 === 0 ? 'bg-gray-50' : ''}>
+                  <td className="p-2 font-medium">{row.name}</td>
+                  <td className="p-2 text-center">{typeof row.base === 'number' && row.base > 1000 ? fmtK(row.base) : fmt(row.base, row.base < 10 ? 1 : 0)}</td>
+                  <td className="p-2 text-center text-red-600">{typeof row.low === 'number' && row.low > 1000 ? fmtK(row.low) : fmt(row.low, row.low < 10 ? 1 : 0)}</td>
+                  <td className="p-2 text-center text-green-600">{typeof row.high === 'number' && row.high > 1000 ? fmtK(row.high) : fmt(row.high, row.high < 10 ? 1 : 0)}</td>
+                  <td className="p-2 text-center bg-red-50">{fmtK(row.impactLow)}</td>
+                  <td className="p-2 text-center bg-green-50">{fmtK(row.impactHigh)}</td>
+                  <td className="p-2 text-center font-bold">{fmtK(Math.abs(row.impactHigh - row.impactLow))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* CONFRONTO SCENARI */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="font-bold mb-4 flex items-center gap-2"><BarChart size={18} /> CONFRONTO SCENARI (Anno 3)</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="p-2 bg-blue-900 text-white text-left">Metrica</th>
+                <th className="p-2 bg-red-700 text-white">WORST</th>
+                <th className="p-2 bg-yellow-600 text-white">MEDIUM</th>
+                <th className="p-2 bg-green-700 text-white">BEST</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="bg-gray-50"><td className="p-2 font-medium">Sensori target A3</td><td className="p-2 text-center">{fmt(SCENARI[1].sensori[2])}</td><td className="p-2 text-center font-bold">{fmt(SCENARI[2].sensori[2])}</td><td className="p-2 text-center">{fmt(SCENARI[3].sensori[2])}</td></tr>
+              <tr><td className="p-2 font-medium">Ricavi A3 (€)</td><td className="p-2 text-center">{fmtK(SCENARI[1].sensori[2] * SCENARI[1].prezzo[2] * 12)}</td><td className="p-2 text-center font-bold">{fmtK(SCENARI[2].sensori[2] * SCENARI[2].prezzo[2] * 12)}</td><td className="p-2 text-center">{fmtK(SCENARI[3].sensori[2] * SCENARI[3].prezzo[2] * 12)}</td></tr>
+              <tr className="bg-gray-50"><td className="p-2 font-medium">Satelliti totali</td><td className="p-2 text-center">{SCENARI[1].satelliti.reduce((a,b)=>a+b, 0)}</td><td className="p-2 text-center font-bold">{SCENARI[2].satelliti.reduce((a,b)=>a+b, 0)}</td><td className="p-2 text-center">{SCENARI[3].satelliti.reduce((a,b)=>a+b, 0)}</td></tr>
+              <tr><td className="p-2 font-medium">CAPEX totale (€)</td><td className="p-2 text-center">{fmtK(SCENARI[1].satelliti.reduce((a,b,i)=>a+b*(SCENARI[1].costoSat[i]+SCENARI[1].costoLancio),0))}</td><td className="p-2 text-center font-bold">{fmtK(SCENARI[2].satelliti.reduce((a,b,i)=>a+b*(SCENARI[2].costoSat[i]+SCENARI[2].costoLancio),0))}</td><td className="p-2 text-center">{fmtK(SCENARI[3].satelliti.reduce((a,b,i)=>a+b*(SCENARI[3].costoSat[i]+SCENARI[3].costoLancio),0))}</td></tr>
+              <tr className="bg-gray-50"><td className="p-2 font-medium">Team FTE A3</td><td className="p-2 text-center">{SCENARI[1].fte[2]}</td><td className="p-2 text-center font-bold">{SCENARI[2].fte[2]}</td><td className="p-2 text-center">{SCENARI[3].fte[2]}</td></tr>
+              <tr><td className="p-2 font-medium">Funding totale (€)</td><td className="p-2 text-center">{fmtK(SCENARI[1].seed + SCENARI[1].seriesA + SCENARI[1].grants)}</td><td className="p-2 text-center font-bold">{fmtK(SCENARI[2].seed + SCENARI[2].seriesA + SCENARI[2].grants)}</td><td className="p-2 text-center">{fmtK(SCENARI[3].seed + SCENARI[3].seriesA + SCENARI[3].grants)}</td></tr>
+              <tr className="bg-gray-50"><td className="p-2 font-medium">LTV/CAC A3</td><td className="p-2 text-center">{(SCENARI[1].prezzo[2] / SCENARI[1].churn / SCENARI[1].cac[2]).toFixed(1)}x</td><td className="p-2 text-center font-bold">{(SCENARI[2].prezzo[2] / SCENARI[2].churn / SCENARI[2].cac[2]).toFixed(1)}x</td><td className="p-2 text-center">{(SCENARI[3].prezzo[2] / SCENARI[3].churn / SCENARI[3].cac[2]).toFixed(1)}x</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ANALISI BREAK-EVEN */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="font-bold mb-4 flex items-center gap-2"><Target size={18} /> ANALISI BREAK-EVEN</h3>
+        <p className="text-xs text-gray-500 mb-2">Ipotesi: Costi fissi operativi A3 = {fmtK(costiFissi)}, Margine Lordo = 75%</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="p-2 bg-blue-900 text-white">Prezzo €/mese</th>
+                <th className="p-2 bg-blue-900 text-white">Contribuzione annua</th>
+                <th className="p-2 bg-blue-900 text-white">Break-even Sensori</th>
+                <th className="p-2 bg-blue-900 text-white">vs Target ({fmt(inputs.sensori[2])})</th>
+              </tr>
+            </thead>
+            <tbody>
+              {breakEvenData.map((row, i) => (
+                <tr key={i} className={i % 2 === 0 ? 'bg-gray-50' : ''}>
+                  <td className="p-2 text-center font-medium">{row.prezzo}€</td>
+                  <td className="p-2 text-center">{fmt(row.contribuzione, 1)}€</td>
+                  <td className="p-2 text-center">{fmt(Math.round(row.breakEvenSensori))}</td>
+                  <td className={`p-2 text-center font-medium ${row.raggiungibile ? 'text-green-600' : 'text-red-600'}`}>
+                    {row.raggiungibile ? '✓ Raggiungibile' : '⚠ Sopra target'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* GUIDA */}
+      <div className="bg-blue-50 rounded-lg p-4 text-sm">
+        <h3 className="font-bold mb-2 flex items-center gap-2"><Lightbulb size={18} /> Come usare queste tabelle</h3>
+        <ul className="list-disc list-inside space-y-1 text-gray-700">
+          <li><strong>TABELLA 1:</strong> Trova la combinazione sensori/prezzo per raggiungere i ricavi target</li>
+          <li><strong>TABELLA 2:</strong> Verifica se il tuo LTV/CAC è sostenibile (verde ≥3x)</li>
+          <li><strong>TABELLA 3:</strong> Pianifica il budget CAPEX in base alla costellazione</li>
+          <li><strong>TORNADO:</strong> Identifica quali variabili hanno più impatto sul business</li>
+          <li><strong>CONFRONTO:</strong> Valuta le differenze tra scenari pessimista/medio/ottimista</li>
+          <li><strong>BREAK-EVEN:</strong> Determina quanti sensori servono per coprire i costi</li>
+        </ul>
+      </div>
+    </div>
+  );
+  };
+
+  // STATO PATRIMONIALE
+  const renderStatoPatrimoniale = () => (
+    <table className="w-full text-sm"><TableHeader title="STATO PATRIMONIALE" /><tbody>
+      <SectionRow title="ATTIVO CIRCOLANTE" />
+      <DataRow label="Cassa inizio anno" type="CALC" unit="€" values={calc.cassaInizio} />
+      <DataRow label="Flusso netto" type="CALC" unit="€" values={calc.flussoNetto} />
+      <DataRow label="Cassa fine anno" type="CALC" unit="€" values={calc.cassaFine} highlight />
+      <DataRow label="Crediti commerciali" type="CALC" unit="€" values={calc.creditiComm} />
+      <DataRow label="TOTALE CIRCOLANTE" type="CALC" unit="€" values={calc.totaleCircolante} highlight />
+      <SectionRow title="ATTIVO IMMOBILIZZATO" />
+      <DataRow label="Immobilizzazioni (lordo)" type="CALC" unit="€" values={calc.immobLordo} />
+      <DataRow label="Fondo ammortamento" type="CALC" unit="€" values={calc.fondoAmmCumulato.map(v => -v)} />
+      <DataRow label="TOTALE IMMOBILIZZATO" type="CALC" unit="€" values={calc.immobNetto} highlight />
+      <DataRow label="TOTALE ATTIVO" type="CALC" unit="€" values={calc.totaleAttivo} highlight />
+      <SectionRow title="PASSIVO CORRENTE" />
+      <DataRow label="Debiti commerciali" type="CALC" unit="€" values={calc.debitiComm} />
+      <DataRow label="Debiti tributari" type="CALC" unit="€" values={calc.debitiTrib} />
+      <DataRow label="TOTALE PASSIVO" type="CALC" unit="€" values={calc.totalePassivoCorr} highlight />
+      <SectionRow title="PATRIMONIO NETTO" />
+      <DataRow label="Versamenti soci (cumulativi)" type="CALC" unit="€" values={calc.pnVersamenti} />
+      <DataRow label="Utili cumulati" type="CALC" unit="€" values={calc.pnUtiliCumulati} />
+      <DataRow label="TOTALE PN" type="CALC" unit="€" values={calc.totalePN} highlight />
+      <DataRow label="TOTALE PASSIVO + PN" type="CALC" unit="€" values={calc.totalePassivoPN} highlight />
+      <tr className={`border-t-2 ${calc.verificaSP.every(v => v === 0) ? 'bg-green-100' : 'bg-red-100'}`}>
+        <td colSpan={3} className="px-3 py-2 font-bold">✓ VERIFICA (Attivo - Passivo - PN)</td>
+        {[0,1,2].map(y => <td key={y} className="px-2 py-1"><div className={`px-2 py-1 text-center font-bold rounded ${calc.verificaSP[y] === 0 ? 'bg-green-300' : 'bg-red-300'}`}>{calc.verificaSP[y] === 0 ? '✓ QUADRA' : calc.verificaSP[y]}</div></td>)}
+      </tr>
+    </tbody></table>
+  );
+
+  // CASH FLOW
+  const renderCashFlow = () => (
+    <table className="w-full text-sm"><TableHeader title="RENDICONTO FINANZIARIO" /><tbody>
+      <SectionRow title="CF OPERATIVO (metodo indiretto)" />
+      <DataRow label="Utile netto" type="CALC" unit="€" values={calc.utileNetto} />
+      <DataRow label="+ Ammortamenti" type="CALC" unit="€" values={calc.ammTotaleAnno} />
+      <DataRow label="- Δ Crediti" type="CALC" unit="€" values={calc.deltaCrediti.map(d => -d)} />
+      <DataRow label="+ Δ Debiti commerciali" type="CALC" unit="€" values={calc.deltaDebitiComm} />
+      <DataRow label="+ Δ Debiti tributari" type="CALC" unit="€" values={calc.deltaDebitiTrib} />
+      <DataRow label="CF OPERATIVO" type="CALC" unit="€" values={calc.cfOperativo} highlight />
+      <SectionRow title="CF INVESTIMENTI" />
+      <DataRow label="CAPEX" type="CALC" unit="€" values={calc.cfInvestimenti} />
+      <SectionRow title="CF FINANZIARIO" />
+      <DataRow label="Finanziamenti" type="CALC" unit="€" values={calc.cfFinanziario} />
+      <SectionRow title="RIEPILOGO" />
+      <DataRow label="Cassa inizio" type="CALC" unit="€" values={calc.cassaInizio} />
+      <DataRow label="FLUSSO NETTO" type="CALC" unit="€" values={calc.flussoNetto} highlight />
+      <DataRow label="CASSA FINE" type="CALC" unit="€" values={calc.cassaFine} highlight />
+      <DataRow label="Free Cash Flow" type="CALC" unit="€" values={calc.fcf} />
+      <DataRow label="Runway (mesi)" type="CALC" unit="m" values={calc.runway.map(r => Math.min(r, 99))} format="number" />
+    </tbody></table>
+  );
+
+  // SCENARI
+  const renderScenari = () => (
+    <div className="p-4 space-y-6">
+      <div className="bg-blue-50 rounded-lg p-4 mb-4">
+        <h3 className="font-bold text-blue-900 mb-2">📊 Selezione Scenario</h3>
+        <p className="text-sm text-gray-700 mb-3">Scegli uno scenario per vedere come cambiano tutti i calcoli del business plan.</p>
+        <div className="flex gap-2">
+          {[1, 2, 3].map(id => (
+            <button key={id} onClick={() => loadScenario(id)} 
+              className={`px-6 py-3 rounded-lg font-bold transition ${scenarioId === id 
+                ? 'bg-blue-600 text-white shadow-lg' 
+                : 'bg-white text-gray-700 border hover:bg-gray-50'}`}>
+              {SCENARI[id].name}
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr>
+            <th className="p-3 bg-blue-900 text-white text-left">Parametro</th>
+            <th className="p-3 bg-red-700 text-white text-center">WORST</th>
+            <th className="p-3 bg-yellow-600 text-white text-center">MEDIUM</th>
+            <th className="p-3 bg-green-700 text-white text-center">BEST</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="bg-gray-200"><td colSpan={4} className="p-2 font-bold">📈 MERCATO E ADOZIONE</td></tr>
+          <tr><td className="p-2 border">Sensori Anno 1</td><td className="p-2 border text-center">{fmt(SCENARI[1].sensori[0])}</td><td className="p-2 border text-center font-bold bg-yellow-50">{fmt(SCENARI[2].sensori[0])}</td><td className="p-2 border text-center">{fmt(SCENARI[3].sensori[0])}</td></tr>
+          <tr className="bg-gray-50"><td className="p-2 border">Sensori Anno 2</td><td className="p-2 border text-center">{fmt(SCENARI[1].sensori[1])}</td><td className="p-2 border text-center font-bold bg-yellow-50">{fmt(SCENARI[2].sensori[1])}</td><td className="p-2 border text-center">{fmt(SCENARI[3].sensori[1])}</td></tr>
+          <tr><td className="p-2 border">Sensori Anno 3</td><td className="p-2 border text-center">{fmt(SCENARI[1].sensori[2])}</td><td className="p-2 border text-center font-bold bg-yellow-50">{fmt(SCENARI[2].sensori[2])}</td><td className="p-2 border text-center">{fmt(SCENARI[3].sensori[2])}</td></tr>
+          <tr className="bg-gray-50"><td className="p-2 border">Canone mensile A1</td><td className="p-2 border text-center">{SCENARI[1].prezzo[0]}€</td><td className="p-2 border text-center font-bold bg-yellow-50">{SCENARI[2].prezzo[0]}€</td><td className="p-2 border text-center">{SCENARI[3].prezzo[0]}€</td></tr>
+          <tr><td className="p-2 border">Canone mensile A2</td><td className="p-2 border text-center">{SCENARI[1].prezzo[1]}€</td><td className="p-2 border text-center font-bold bg-yellow-50">{SCENARI[2].prezzo[1]}€</td><td className="p-2 border text-center">{SCENARI[3].prezzo[1]}€</td></tr>
+          <tr className="bg-gray-50"><td className="p-2 border">Canone mensile A3</td><td className="p-2 border text-center">{SCENARI[1].prezzo[2]}€</td><td className="p-2 border text-center font-bold bg-yellow-50">{SCENARI[2].prezzo[2]}€</td><td className="p-2 border text-center">{SCENARI[3].prezzo[2]}€</td></tr>
+          <tr><td className="p-2 border">Churn mensile</td><td className="p-2 border text-center">{(SCENARI[1].churn*100).toFixed(1)}%</td><td className="p-2 border text-center font-bold bg-yellow-50">{(SCENARI[2].churn*100).toFixed(1)}%</td><td className="p-2 border text-center">{(SCENARI[3].churn*100).toFixed(1)}%</td></tr>
+          
+          <tr className="bg-gray-200"><td colSpan={4} className="p-2 font-bold">🛰️ INFRASTRUTTURA</td></tr>
+          <tr><td className="p-2 border">Satelliti Anno 1</td><td className="p-2 border text-center">{SCENARI[1].satelliti[0]}</td><td className="p-2 border text-center font-bold bg-yellow-50">{SCENARI[2].satelliti[0]}</td><td className="p-2 border text-center">{SCENARI[3].satelliti[0]}</td></tr>
+          <tr className="bg-gray-50"><td className="p-2 border">Satelliti Anno 2</td><td className="p-2 border text-center">{SCENARI[1].satelliti[1]}</td><td className="p-2 border text-center font-bold bg-yellow-50">{SCENARI[2].satelliti[1]}</td><td className="p-2 border text-center">{SCENARI[3].satelliti[1]}</td></tr>
+          <tr><td className="p-2 border">Satelliti Anno 3</td><td className="p-2 border text-center">{SCENARI[1].satelliti[2]}</td><td className="p-2 border text-center font-bold bg-yellow-50">{SCENARI[2].satelliti[2]}</td><td className="p-2 border text-center">{SCENARI[3].satelliti[2]}</td></tr>
+          <tr className="bg-gray-50"><td className="p-2 border">Costo produzione sat A1</td><td className="p-2 border text-center">{fmtK(SCENARI[1].costoSat[0])}</td><td className="p-2 border text-center font-bold bg-yellow-50">{fmtK(SCENARI[2].costoSat[0])}</td><td className="p-2 border text-center">{fmtK(SCENARI[3].costoSat[0])}</td></tr>
+          <tr><td className="p-2 border">Costo produzione sat A2</td><td className="p-2 border text-center">{fmtK(SCENARI[1].costoSat[1])}</td><td className="p-2 border text-center font-bold bg-yellow-50">{fmtK(SCENARI[2].costoSat[1])}</td><td className="p-2 border text-center">{fmtK(SCENARI[3].costoSat[1])}</td></tr>
+          <tr className="bg-gray-50"><td className="p-2 border">Costo produzione sat A3</td><td className="p-2 border text-center">{fmtK(SCENARI[1].costoSat[2])}</td><td className="p-2 border text-center font-bold bg-yellow-50">{fmtK(SCENARI[2].costoSat[2])}</td><td className="p-2 border text-center">{fmtK(SCENARI[3].costoSat[2])}</td></tr>
+          <tr><td className="p-2 border">Costo lancio per satellite</td><td className="p-2 border text-center">{fmtK(SCENARI[1].costoLancio)}</td><td className="p-2 border text-center font-bold bg-yellow-50">{fmtK(SCENARI[2].costoLancio)}</td><td className="p-2 border text-center">{fmtK(SCENARI[3].costoLancio)}</td></tr>
+          
+          <tr className="bg-gray-200"><td colSpan={4} className="p-2 font-bold">👥 TEAM</td></tr>
+          <tr><td className="p-2 border">FTE Anno 1</td><td className="p-2 border text-center">{SCENARI[1].fte[0]}</td><td className="p-2 border text-center font-bold bg-yellow-50">{SCENARI[2].fte[0]}</td><td className="p-2 border text-center">{SCENARI[3].fte[0]}</td></tr>
+          <tr className="bg-gray-50"><td className="p-2 border">FTE Anno 2</td><td className="p-2 border text-center">{SCENARI[1].fte[1]}</td><td className="p-2 border text-center font-bold bg-yellow-50">{SCENARI[2].fte[1]}</td><td className="p-2 border text-center">{SCENARI[3].fte[1]}</td></tr>
+          <tr><td className="p-2 border">FTE Anno 3</td><td className="p-2 border text-center">{SCENARI[1].fte[2]}</td><td className="p-2 border text-center font-bold bg-yellow-50">{SCENARI[2].fte[2]}</td><td className="p-2 border text-center">{SCENARI[3].fte[2]}</td></tr>
+          <tr className="bg-gray-50"><td className="p-2 border">RAL media</td><td className="p-2 border text-center">{fmtK(SCENARI[1].ral)}</td><td className="p-2 border text-center font-bold bg-yellow-50">{fmtK(SCENARI[2].ral)}</td><td className="p-2 border text-center">{fmtK(SCENARI[3].ral)}</td></tr>
+          
+          <tr className="bg-gray-200"><td colSpan={4} className="p-2 font-bold">💰 FINANZIAMENTI</td></tr>
+          <tr><td className="p-2 border">Seed round</td><td className="p-2 border text-center">{fmtK(SCENARI[1].seed)}</td><td className="p-2 border text-center font-bold bg-yellow-50">{fmtK(SCENARI[2].seed)}</td><td className="p-2 border text-center">{fmtK(SCENARI[3].seed)}</td></tr>
+          <tr className="bg-gray-50"><td className="p-2 border">Series A</td><td className="p-2 border text-center">{fmtK(SCENARI[1].seriesA)}</td><td className="p-2 border text-center font-bold bg-yellow-50">{fmtK(SCENARI[2].seriesA)}</td><td className="p-2 border text-center">{fmtK(SCENARI[3].seriesA)}</td></tr>
+          <tr><td className="p-2 border">Grants pubblici</td><td className="p-2 border text-center">{fmtK(SCENARI[1].grants)}</td><td className="p-2 border text-center font-bold bg-yellow-50">{fmtK(SCENARI[2].grants)}</td><td className="p-2 border text-center">{fmtK(SCENARI[3].grants)}</td></tr>
+          
+          <tr className="bg-gray-200"><td colSpan={4} className="p-2 font-bold">📣 CAC E MARKETING</td></tr>
+          <tr><td className="p-2 border">CAC Anno 1</td><td className="p-2 border text-center">{SCENARI[1].cac[0]}€</td><td className="p-2 border text-center font-bold bg-yellow-50">{SCENARI[2].cac[0]}€</td><td className="p-2 border text-center">{SCENARI[3].cac[0]}€</td></tr>
+          <tr className="bg-gray-50"><td className="p-2 border">CAC Anno 2</td><td className="p-2 border text-center">{SCENARI[1].cac[1]}€</td><td className="p-2 border text-center font-bold bg-yellow-50">{SCENARI[2].cac[1]}€</td><td className="p-2 border text-center">{SCENARI[3].cac[1]}€</td></tr>
+          <tr><td className="p-2 border">CAC Anno 3</td><td className="p-2 border text-center">{SCENARI[1].cac[2]}€</td><td className="p-2 border text-center font-bold bg-yellow-50">{SCENARI[2].cac[2]}€</td><td className="p-2 border text-center">{SCENARI[3].cac[2]}€</td></tr>
+        </tbody>
+      </table>
+      
+      <div className="bg-blue-50 rounded-lg p-4 text-sm">
+        <h4 className="font-bold mb-2">💡 Come usare gli scenari</h4>
+        <ul className="list-disc list-inside space-y-1 text-gray-700">
+          <li><strong>WORST:</strong> Scenario pessimista - usa per stress test e piano B</li>
+          <li><strong>MEDIUM:</strong> Scenario realistico - base per la pianificazione</li>
+          <li><strong>BEST:</strong> Scenario ottimista - mostra il potenziale massimo</li>
+        </ul>
+      </div>
+    </div>
+  );
+
+  // MERCATO
+  const renderMercato = () => {
+    // Calcoli TAM/SAM/SOM basati sugli input
+    const tamSensori = 500000000; // 500M sensori IoT globali
+    const tamValore = tamSensori * 2 * 12; // €2/mese media mercato
+    const samPct = 0.05; // 5% addressable (agricoltura, ambiente remoto)
+    const samSensori = tamSensori * samPct;
+    const samValore = tamValore * samPct;
+    const somPct = inputs.sensori[2] / samSensori; // quota raggiungibile
+    const somSensori = inputs.sensori[2];
+    const somValore = calc.ricaviTotali[2];
+    
+    return (
+    <div className="p-4 space-y-6">
+      <div className="bg-green-50 rounded-lg p-4 mb-4">
+        <h3 className="font-bold text-green-900 mb-2">🌍 Analisi di Mercato</h3>
+        <p className="text-sm text-gray-700">Il mercato IoT satellitare è in forte crescita. Ecco come si posiziona NanoSat IoT.</p>
+      </div>
+      
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+          <h4 className="font-bold text-blue-900">TAM</h4>
+          <p className="text-xs text-gray-500">Total Addressable Market</p>
+          <p className="text-2xl font-bold mt-2">{fmtK(tamValore)}</p>
+          <p className="text-sm text-gray-600">{fmtK(tamSensori)} sensori</p>
+          <p className="text-xs text-gray-500 mt-2">Tutto il mercato IoT globale che potrebbe usare connettività satellitare</p>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
+          <h4 className="font-bold text-green-900">SAM</h4>
+          <p className="text-xs text-gray-500">Serviceable Addressable Market</p>
+          <p className="text-2xl font-bold mt-2">{fmtK(samValore)}</p>
+          <p className="text-sm text-gray-600">{fmtK(samSensori)} sensori</p>
+          <p className="text-xs text-gray-500 mt-2">Segmenti che puoi realmente servire (agricoltura, ambiente, logistica remota)</p>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
+          <h4 className="font-bold text-orange-900">SOM</h4>
+          <p className="text-xs text-gray-500">Serviceable Obtainable Market</p>
+          <p className="text-2xl font-bold mt-2">{fmtK(somValore)}</p>
+          <p className="text-sm text-gray-600">{fmtK(somSensori)} sensori</p>
+          <p className="text-xs text-gray-500 mt-2">Quota di mercato realisticamente raggiungibile in 3 anni</p>
+        </div>
+      </div>
+      
+      <table className="w-full text-sm"><thead><tr>
+        <th className="p-3 bg-blue-900 text-white text-left">Metrica</th>
+        <th className="p-3 bg-blue-900 text-white text-center">Anno 1</th>
+        <th className="p-3 bg-blue-900 text-white text-center">Anno 2</th>
+        <th className="p-3 bg-blue-900 text-white text-center">Anno 3</th>
+      </tr></thead><tbody>
+        <tr className="bg-gray-100"><td colSpan={4} className="p-2 font-bold">📊 DIMENSIONE MERCATO</td></tr>
+        <tr><td className="p-2 border">TAM (valore €)</td><td className="p-2 border text-right">{fmtK(tamValore)}</td><td className="p-2 border text-right">{fmtK(tamValore * 1.1)}</td><td className="p-2 border text-right">{fmtK(tamValore * 1.21)}</td></tr>
+        <tr className="bg-gray-50"><td className="p-2 border">SAM (valore €)</td><td className="p-2 border text-right">{fmtK(samValore)}</td><td className="p-2 border text-right">{fmtK(samValore * 1.15)}</td><td className="p-2 border text-right">{fmtK(samValore * 1.32)}</td></tr>
+        <tr><td className="p-2 border">SOM target (sensori)</td><td className="p-2 border text-right">{fmt(inputs.sensori[0])}</td><td className="p-2 border text-right">{fmt(inputs.sensori[1])}</td><td className="p-2 border text-right">{fmt(inputs.sensori[2])}</td></tr>
+        <tr className="bg-gray-50"><td className="p-2 border">SOM target (€)</td><td className="p-2 border text-right">{fmtK(calc.ricaviTotali[0])}</td><td className="p-2 border text-right">{fmtK(calc.ricaviTotali[1])}</td><td className="p-2 border text-right">{fmtK(calc.ricaviTotali[2])}</td></tr>
+        <tr><td className="p-2 border font-bold">Quota SAM %</td><td className="p-2 border text-right font-bold">{fmtPct(inputs.sensori[0] / samSensori)}</td><td className="p-2 border text-right font-bold">{fmtPct(inputs.sensori[1] / samSensori)}</td><td className="p-2 border text-right font-bold">{fmtPct(inputs.sensori[2] / samSensori)}</td></tr>
+        
+        <tr className="bg-gray-100"><td colSpan={4} className="p-2 font-bold">🎯 POSIZIONAMENTO COMPETITIVO</td></tr>
+        <tr><td className="p-2 border">Prezzo NanoSat (€/mese)</td><td className="p-2 border text-right text-green-600 font-bold">{inputs.prezzo[0]}€</td><td className="p-2 border text-right text-green-600 font-bold">{inputs.prezzo[1]}€</td><td className="p-2 border text-right text-green-600 font-bold">{inputs.prezzo[2]}€</td></tr>
+        <tr className="bg-gray-50"><td className="p-2 border">Prezzo Iridium (€/mese)</td><td className="p-2 border text-right text-red-600">15€</td><td className="p-2 border text-right text-red-600">15€</td><td className="p-2 border text-right text-red-600">15€</td></tr>
+        <tr><td className="p-2 border">Prezzo Globalstar (€/mese)</td><td className="p-2 border text-right text-red-600">12€</td><td className="p-2 border text-right text-red-600">12€</td><td className="p-2 border text-right text-red-600">12€</td></tr>
+        <tr className="bg-gray-50"><td className="p-2 border font-bold">Vantaggio prezzo vs Iridium</td><td className="p-2 border text-right text-green-600 font-bold">-{fmtPct(1 - inputs.prezzo[0]/15)}</td><td className="p-2 border text-right text-green-600 font-bold">-{fmtPct(1 - inputs.prezzo[1]/15)}</td><td className="p-2 border text-right text-green-600 font-bold">-{fmtPct(1 - inputs.prezzo[2]/15)}</td></tr>
+      </tbody></table>
+      
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white rounded-lg shadow p-4">
+          <h4 className="font-bold mb-3">🎯 Segmenti Target</h4>
+          <ul className="space-y-2 text-sm">
+            <li className="flex items-center gap-2"><span className="w-3 h-3 bg-green-500 rounded-full"></span> Agricoltura di precisione (40%)</li>
+            <li className="flex items-center gap-2"><span className="w-3 h-3 bg-blue-500 rounded-full"></span> Monitoraggio ambientale (25%)</li>
+            <li className="flex items-center gap-2"><span className="w-3 h-3 bg-orange-500 rounded-full"></span> Logistica e trasporti (20%)</li>
+            <li className="flex items-center gap-2"><span className="w-3 h-3 bg-purple-500 rounded-full"></span> Energy & Utilities (15%)</li>
+          </ul>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow p-4">
+          <h4 className="font-bold mb-3">💪 Vantaggi Competitivi</h4>
+          <ul className="space-y-2 text-sm">
+            <li className="flex items-center gap-2"><CheckCircle size={16} className="text-green-500" /> Prezzo 70-80% più basso</li>
+            <li className="flex items-center gap-2"><CheckCircle size={16} className="text-green-500" /> Focus su basso data rate IoT</li>
+            <li className="flex items-center gap-2"><CheckCircle size={16} className="text-green-500" /> Nanosatelliti = costi inferiori</li>
+            <li className="flex items-center gap-2"><CheckCircle size={16} className="text-green-500" /> Integrazione semplice</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+  };
+
+  // COSTI
+  const renderCosti = () => (
+    <table className="w-full text-sm"><TableHeader title="STRUTTURA COSTI" /><tbody>
+      <SectionRow title="💰 CAPEX (Investimenti)" />
+      <DataRow label="Produzione satelliti" type="CALC" unit="€" values={calc.capexSatelliti} />
+      <DataRow label="Attrezzature" type="CALC" unit="€" values={calc.capexAttrezzature} />
+      <DataRow label="TOTALE CAPEX" type="CALC" unit="€" values={calc.capexTotale} highlight />
+      
+      <SectionRow title="👥 COSTO PERSONALE" />
+      <DataRow label="FTE totali" type="INPUT" unit="n." values={inputs.fte} inputKey="fte" format="number" />
+      <DataRow label="RAL media" type="INPUT" unit="€" values={inputs.ral} inputKey="ral" />
+      <DataRow label="Welfare %" type="INPUT" unit="%" values={inputs.welfare.map(w => w * 100)} inputKey="welfare" format="number" />
+      <DataRow label="COSTO PERSONALE TOTALE" type="CALC" unit="€" values={calc.costoPersonale} highlight />
+      
+      <SectionRow title="🏢 OPEX (Costi Operativi)" />
+      <DataRow label="Affitto annuo" type="CALC" unit="€" values={calc.affittoAnnuo} />
+      <DataRow label="Ground station annuo" type="CALC" unit="€" values={calc.groundAnnuo} />
+      <DataRow label="Cloud & IT annuo" type="CALC" unit="€" values={calc.cloudAnnuo} />
+      <DataRow label="Altri OPEX (licenze, legal, R&D...)" type="CALC" unit="€" values={calc.altriOpex} />
+      <DataRow label="TOTALE OPEX" type="CALC" unit="€" values={calc.opexTotale} highlight />
+      
+      <SectionRow title="📣 COSTI ACQUISIZIONE CLIENTI" />
+      <DataRow label="CAC unitario" type="INPUT" unit="€" values={inputs.cac} inputKey="cac" />
+      <DataRow label="Nuovi sensori acquisiti" type="CALC" unit="n." values={calc.sensoriNuovi} format="number" />
+      <DataRow label="CAC TOTALE" type="CALC" unit="€" values={calc.cacTotale} highlight />
+      
+      <SectionRow title="📉 AMMORTAMENTI" />
+      <DataRow label="Ammortamento satelliti" type="CALC" unit="€" values={calc.ammSatellitiAnno} />
+      <DataRow label="Ammortamento attrezzature" type="CALC" unit="€" values={calc.ammAttrezzAnno} />
+      <DataRow label="TOTALE AMMORTAMENTI" type="CALC" unit="€" values={calc.ammTotaleAnno} highlight />
+      
+      <SectionRow title="📊 RIEPILOGO COSTI" />
+      <DataRow label="Totale Costi Operativi" type="CALC" unit="€" values={calc.totCostiOperativi} />
+      <DataRow label="Totale CAPEX + OPEX + Personale" type="CALC" unit="€" values={[0,1,2].map(y => calc.capexTotale[y] + calc.opexTotale[y] + calc.costoPersonale[y] + calc.cacTotale[y])} highlight />
+      
+      <tr className="bg-blue-50">
+        <td colSpan={3} className="px-3 py-2 font-bold">📈 Costo per Sensore Servito</td>
+        {[0,1,2].map(y => (
+          <td key={y} className="px-2 py-1">
+            <div className="px-2 py-1 text-right font-bold bg-blue-100 rounded">
+              {calc.sensoriFine[y] > 0 ? `${fmt((calc.costoPersonale[y] + calc.opexTotale[y]) / calc.sensoriFine[y], 1)}€` : '-'}
+            </div>
+          </td>
+        ))}
+      </tr>
+    </tbody></table>
+  );
+
+  // Render sheet
   const renderSheet = () => {
     switch (activeSheet) {
       case 'DASHBOARD': return renderDashboard();
+      case 'SIMULATORE': return renderSimulator();
+      case 'SCENARI': return renderScenari();
+      case 'MERCATO': return renderMercato();
       case 'ASSUMPTIONS': return (
         <table className="w-full text-sm"><TableHeader title="ASSUMPTIONS" /><tbody>
           <SectionRow title="COSTELLAZIONE" />
@@ -1049,6 +1200,9 @@ export default function NanoSatBusinessPlanApp() {
           <SectionRow title="TEAM" />
           <DataRow label="FTE totali" type="INPUT" unit="n." values={inputs.fte} inputKey="fte" format="number" />
           <DataRow label="RAL media" type="INPUT" unit="€" values={inputs.ral} inputKey="ral" />
+          <SectionRow title="WORKING CAPITAL" />
+          <DataRow label="Giorni incasso" type="INPUT" unit="gg" values={inputs.ggIncasso} inputKey="ggIncasso" format="number" />
+          <DataRow label="Giorni pagamento" type="INPUT" unit="gg" values={inputs.ggPagamento} inputKey="ggPagamento" format="number" />
           <SectionRow title="FINANZIAMENTI" />
           <DataRow label="Capitale founders" type="INPUT" unit="€" values={inputs.capitaleFounders} inputKey="capitaleFounders" />
           <DataRow label="Seed" type="INPUT" unit="€" values={inputs.seed} inputKey="seed" />
@@ -1071,6 +1225,7 @@ export default function NanoSatBusinessPlanApp() {
           <DataRow label="Crescita YoY" type="CALC" unit="%" values={calc.crescitaYoY} format="percent" />
         </tbody></table>
       );
+      case 'COSTI': return renderCosti();
       case 'CONTO_ECONOMICO': return (
         <table className="w-full text-sm"><TableHeader title="CONTO ECONOMICO" /><tbody>
           <DataRow label="Ricavi" type="CALC" unit="€" values={calc.ricaviTotali} highlight />
@@ -1089,120 +1244,299 @@ export default function NanoSatBusinessPlanApp() {
           <DataRow label="UTILE NETTO" type="CALC" unit="€" values={calc.utileNetto} highlight />
         </tbody></table>
       );
-      case 'CASH_FLOW': return (
-        <table className="w-full text-sm"><TableHeader title="RENDICONTO FINANZIARIO" /><tbody>
-          <SectionRow title="CF OPERATIVO" />
-          <DataRow label="Utile netto" type="CALC" unit="€" values={calc.utileNetto} />
-          <DataRow label="+ Ammortamenti" type="CALC" unit="€" values={calc.ammTotaleAnno} />
-          <DataRow label="CF OPERATIVO" type="CALC" unit="€" values={calc.cfOperativo} highlight />
-          <SectionRow title="CF INVESTIMENTI" />
-          <DataRow label="CAPEX" type="CALC" unit="€" values={calc.cfInvestimenti} />
-          <SectionRow title="CF FINANZIARIO" />
-          <DataRow label="Finanziamenti" type="CALC" unit="€" values={calc.cfFinanziario} />
-          <SectionRow title="RIEPILOGO" />
-          <DataRow label="Cassa inizio" type="CALC" unit="€" values={calc.cassaInizio} />
-          <DataRow label="FLUSSO NETTO" type="CALC" unit="€" values={calc.flussoNetto} highlight />
-          <DataRow label="CASSA FINE" type="CALC" unit="€" values={calc.cassaFine} highlight />
-          <DataRow label="Free Cash Flow" type="CALC" unit="€" values={calc.fcf} />
-        </tbody></table>
-      );
-      case 'KPI': return (
-        <div className="overflow-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-blue-900 text-white sticky top-0">
-              <tr><th className="p-2 text-left">KPI</th><th className="p-2 w-20">A1</th><th className="p-2 w-20">A2</th><th className="p-2 w-20">A3</th><th className="p-2 w-8"></th></tr>
-            </thead>
-            <tbody>
-              {[
-                { key: 'mrr', values: calc.mrr, format: 'currency' },
-                { key: 'arr', values: calc.arr, format: 'currency' },
-                { key: 'ltv', values: calc.ltv, format: 'currency' },
-                { key: 'ltvCac', values: calc.ltvCac, format: 'decimal', highlight: true },
-                { key: 'cacPayback', values: calc.cacPayback, format: 'decimal' },
-                { key: 'churnAnnuo', values: calc.churnAnnuo, format: 'percent' },
-                { key: 'rule40', values: calc.rule40.map(r => r/100), format: 'percent' },
-                { key: 'revPerEmployee', values: calc.revPerEmployee, format: 'currency' },
-              ].map(row => {
-                const info = KPI_INFO[row.key];
-                const isLtvCac = row.key === 'ltvCac';
-                return (
-                  <tr key={row.key} className={`border-b hover:bg-gray-50 ${isLtvCac ? 'bg-yellow-50' : ''}`}>
-                    <td className={`p-2 font-medium ${isLtvCac ? 'font-bold' : ''}`}>{isLtvCac ? '⭐ ' : ''}{info?.name}</td>
-                    {[0,1,2].map(y => (
-                      <td key={y} className="p-2">
-                        {isLtvCac ? (
-                          <div className={`px-2 py-1 text-center font-bold rounded ${row.values[y] >= 3 ? 'bg-green-300' : row.values[y] >= 2 ? 'bg-yellow-300' : 'bg-red-300'}`}>
-                            {fmt(row.values[y], 1)}x
-                          </div>
-                        ) : <CalcCell value={row.values[y]} format={row.format} />}
-                      </td>
-                    ))}
-                    <td className="p-2"><button onClick={() => setSelectedKPI(row.key)} className="text-blue-500 hover:text-blue-700"><Info size={16} /></button></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      );
-      case 'VALUATION': return (
-        <table className="w-full text-sm"><TableHeader title="VALUTAZIONE" /><tbody>
-          <SectionRow title="METODO 1: REVENUE MULTIPLE" />
-          <DataRow label="Ricavi" type="CALC" unit="€" values={calc.ricaviTotali} />
-          <DataRow label="Revenue Multiple" type="INPUT" unit="x" values={inputs.revenueMultiple} inputKey="revenueMultiple" format="number" />
-          <DataRow label="VALUTAZIONE (Rev Multiple)" type="CALC" unit="€" values={calc.valRevMultiple} highlight />
-          <SectionRow title="METODO 2: ARR MULTIPLE" />
-          <DataRow label="ARR" type="CALC" unit="€" values={calc.arr} />
-          <DataRow label="ARR Multiple" type="INPUT" unit="x" values={inputs.arrMultiple} inputKey="arrMultiple" format="decimal" step={0.5} />
-          <DataRow label="VALUTAZIONE (ARR Multiple)" type="CALC" unit="€" values={calc.valArrMultiple} highlight />
-          <SectionRow title="VALUTAZIONE MEDIA" />
-          <DataRow label="VALUTAZIONE MEDIA" type="CALC" unit="€" values={calc.valMedia} highlight />
-        </tbody></table>
-      );
+      case 'STATO_PATRIMONIALE': return renderStatoPatrimoniale();
+      case 'CASH_FLOW': return renderCashFlow();
+      case 'KPI_CLASSICI': return renderKPIClassici();
+      case 'KPI_AVANZATI': return renderKPIAvanzati();
+      case 'VALUATION': return renderValuation();
+      case 'SENSITIVITY': return renderSensitivity();
       default: return renderDashboard();
     }
   };
 
-  const sheets = ['DASHBOARD', 'ASSUMPTIONS', 'RICAVI', 'CONTO_ECONOMICO', 'CASH_FLOW', 'KPI', 'VALUATION'];
+  // ═══════════════════════════════════════════════════════════════
+  // WIZARD COMPONENTS & STEPS
+  // ═══════════════════════════════════════════════════════════════
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // MAIN RENDER
-  // ═══════════════════════════════════════════════════════════════════════════════
+  const WIZARD_STEPS = [
+    { id: 1, title: 'Il Tuo Progetto', subtitle: 'Scegli il punto di partenza' },
+    { id: 2, title: 'Il Mercato', subtitle: 'Sensori, prezzi e churn' },
+    { id: 3, title: 'L\'Infrastruttura', subtitle: 'Satelliti e costi' },
+    { id: 4, title: 'Acquisizione Clienti', subtitle: 'CAC e strategia' },
+    { id: 5, title: 'Il Team', subtitle: 'Persone e costi' },
+    { id: 6, title: 'I Finanziamenti', subtitle: 'Fonti di funding' }
+  ];
+
+  const WizardProgress = () => (
+    <div className="flex items-center justify-center gap-2 mb-8">
+      {WIZARD_STEPS.map((step, idx) => (
+        <React.Fragment key={step.id}>
+          <button
+            onClick={() => setWizardStep(step.id)}
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+              wizardStep === step.id ? 'bg-blue-600 text-white scale-110' :
+              wizardStep > step.id ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
+            }`}
+          >
+            {wizardStep > step.id ? <Check size={18} /> : step.id}
+          </button>
+          {idx < WIZARD_STEPS.length - 1 && (
+            <div className={`w-12 h-1 rounded ${wizardStep > step.id ? 'bg-green-500' : 'bg-gray-200'}`} />
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+
+  const InfoBox = ({ type = 'info', children }) => {
+    const styles = {
+      tip: 'bg-green-50 border-green-200 text-green-800',
+      warning: 'bg-amber-50 border-amber-200 text-amber-800',
+      info: 'bg-blue-50 border-blue-200 text-blue-800',
+      formula: 'bg-purple-50 border-purple-200 text-purple-800'
+    };
+    const icons = { tip: <Lightbulb size={18} />, warning: <AlertTriangle size={18} />, info: <Info size={18} />, formula: <Target size={18} /> };
+    return (
+      <div className={`flex gap-3 p-4 rounded-lg border ${styles[type]} mb-4`}>
+        <div className="flex-shrink-0">{icons[type]}</div>
+        <div className="text-sm">{children}</div>
+      </div>
+    );
+  };
+
+  const WizardInputRow = ({ label, values, inputKey, unit = '€', step = 1, help }) => (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <label className="font-medium text-gray-700">{label}</label>
+        {help && (
+          <button onClick={() => setExpandedHelp(prev => ({ ...prev, [inputKey]: !prev[inputKey] }))} className="text-blue-500 hover:text-blue-700">
+            <HelpCircle size={16} />
+          </button>
+        )}
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        {[0, 1, 2].map(y => (
+          <div key={y}>
+            <div className="text-xs text-gray-500 mb-1 font-medium">Anno {y + 1}</div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={values[y]}
+                onChange={(e) => updateInput(inputKey, y, parseFloat(e.target.value) || 0)}
+                step={step}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right font-medium"
+              />
+              <span className="text-gray-500 text-sm whitespace-nowrap min-w-[50px]">{unit}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      {expandedHelp[inputKey] && help && (
+        <div className="mt-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">{help}</div>
+      )}
+    </div>
+  );
+
+  const WizardNav = () => (
+    <div className="flex justify-between mt-8 pt-6 border-t">
+      <button
+        onClick={() => setWizardStep(s => s - 1)}
+        disabled={wizardStep === 1}
+        className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition ${
+          wizardStep === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+        }`}
+      >
+        <ChevronLeft size={20} /> Indietro
+      </button>
+      {wizardStep < 6 ? (
+        <button onClick={() => setWizardStep(s => s + 1)} className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition">
+          Avanti <ChevronRight size={20} />
+        </button>
+      ) : (
+        <button onClick={() => setViewMode('dashboard')} className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition">
+          <CheckCircle size={20} /> Vai alla Dashboard
+        </button>
+      )}
+    </div>
+  );
+
+  const renderWizardStep = () => {
+    switch (wizardStep) {
+      case 1:
+        return (
+          <div className="fade-in">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Benvenuto nel Wizard</h2>
+            <p className="text-gray-600 mb-6">Scegli uno scenario di partenza o parti da zero per compilare il tuo business plan.</p>
+            <InfoBox type="tip">Gli scenari preimpostati contengono valori realistici basati su ricerche di mercato. Puoi modificare ogni valore nei passi successivi.</InfoBox>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              {[1, 2, 3].map(id => (
+                <button
+                  key={id}
+                  onClick={() => { loadScenario(id); setWizardStep(2); }}
+                  className={`p-6 rounded-xl border-2 transition-all hover:shadow-lg ${
+                    scenarioId === id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'
+                  }`}
+                >
+                  <div className={`text-lg font-bold mb-2 ${id === 1 ? 'text-red-600' : id === 2 ? 'text-yellow-600' : 'text-green-600'}`}>
+                    {SCENARI[id].name}
+                  </div>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <div>📡 {SCENARI[id].sensori[2].toLocaleString()} sensori (Y3)</div>
+                    <div>🛰️ {SCENARI[id].satelliti[2]} satelliti (Y3)</div>
+                    <div>👥 {SCENARI[id].fte[2]} dipendenti (Y3)</div>
+                    <div>💰 €{((SCENARI[id].seed + SCENARI[id].seriesA + SCENARI[id].grants) / 1000).toFixed(0)}k funding</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="fade-in">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Il Mercato</h2>
+            <p className="text-gray-600 mb-6">Definisci quanti sensori prevedi di connettere, a quale prezzo e il tasso di abbandono.</p>
+            <InfoBox type="info">Il prezzo per sensore dovrebbe bilanciare competitività e sostenibilità. Considera che il churn mensile impatta fortemente sul LTV.</InfoBox>
+            <div className="bg-gray-50 rounded-xl p-6">
+              <WizardInputRow label="Sensori connessi" values={inputs.sensori} inputKey="sensori" unit="sensori" step={100} help="Numero di sensori IoT che prevedi di connettere alla tua rete satellitare." />
+              <WizardInputRow label="Prezzo per sensore" values={inputs.prezzo} inputKey="prezzo" unit="€/mese" step={0.1} help="Ricavo mensile per ogni sensore connesso. Include la subscription base." />
+              <WizardInputRow label="Churn mensile" values={inputs.churn.map(v => v * 100)} inputKey="churn" unit="%" step={0.1} help="Percentuale di clienti che perdi ogni mese. Un churn del 2% significa che perdi ~21% dei clienti all'anno." />
+            </div>
+            <InfoBox type="formula" className="mt-4">
+              <strong>LTV = ARPU ÷ Churn</strong> — Con €3/mese e 2% churn: LTV = 3 ÷ 0.02 = €150 per cliente
+            </InfoBox>
+          </div>
+        );
+
+      case 3:
+        return (
+          <div className="fade-in">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">L'Infrastruttura</h2>
+            <p className="text-gray-600 mb-6">Configura la tua costellazione di satelliti e i costi associati.</p>
+            <InfoBox type="warning">I satelliti sono CAPEX pesanti. Ogni satellite ha una vita utile limitata (3-5 anni) e richiede ammortamento.</InfoBox>
+            <div className="bg-gray-50 rounded-xl p-6">
+              <WizardInputRow label="Numero satelliti" values={inputs.satelliti} inputKey="satelliti" unit="sat" step={1} help="Quanti satelliti prevedi di lanciare. Più satelliti = più copertura ma più CAPEX." />
+              <WizardInputRow label="Costo per satellite" values={inputs.costoSat} inputKey="costoSat" unit="€" step={1000} help="Costo di costruzione/acquisto di ogni satellite. Può scendere con le economie di scala." />
+              <WizardInputRow label="Costo lancio (per sat)" values={inputs.costoLancio} inputKey="costoLancio" unit="€" step={1000} help="Costo per mettere in orbita ogni satellite. Include quota del vettore." />
+              <WizardInputRow label="Vita utile satellite" values={inputs.vitaSatellite} inputKey="vitaSatellite" unit="anni" step={1} help="Durata operativa prevista. Determina il periodo di ammortamento." />
+            </div>
+          </div>
+        );
+
+      case 4:
+        return (
+          <div className="fade-in">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Acquisizione Clienti</h2>
+            <p className="text-gray-600 mb-6">Quanto costa acquisire ogni nuovo cliente?</p>
+            <InfoBox type="info">Il CAC include tutti i costi di marketing e vendita divisi per il numero di nuovi clienti. Un LTV/CAC ratio di almeno 3x è considerato sano.</InfoBox>
+            <div className="bg-gray-50 rounded-xl p-6">
+              <WizardInputRow label="CAC (per sensore)" values={inputs.cac} inputKey="cac" unit="€" step={1} help="Customer Acquisition Cost: quanto spendi per acquisire ogni nuovo sensore connesso." />
+            </div>
+            <div className="mt-6 grid grid-cols-3 gap-4">
+              {[0, 1, 2].map(y => {
+                const ltv = inputs.prezzo[y] / inputs.churn[y];
+                const ratio = ltv / inputs.cac[y];
+                return (
+                  <div key={y} className={`p-4 rounded-lg ${ratio >= 3 ? 'bg-green-50' : ratio >= 1 ? 'bg-yellow-50' : 'bg-red-50'}`}>
+                    <div className="text-sm text-gray-500">Anno {y + 1}</div>
+                    <div className="text-2xl font-bold">{ratio.toFixed(1)}x</div>
+                    <div className="text-xs text-gray-600">LTV/CAC ratio</div>
+                    <div className={`text-xs font-medium mt-1 ${ratio >= 3 ? 'text-green-600' : ratio >= 1 ? 'text-yellow-600' : 'text-red-600'}`}>
+                      {ratio >= 3 ? '✓ Ottimo' : ratio >= 1 ? '⚠ Da migliorare' : '✗ Critico'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+
+      case 5:
+        return (
+          <div className="fade-in">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Il Team</h2>
+            <p className="text-gray-600 mb-6">Pianifica la crescita del team e i costi del personale.</p>
+            <InfoBox type="tip">Il costo del personale è spesso la voce più grande. Considera RAL + welfare + contributi (~40% extra sul lordo).</InfoBox>
+            <div className="bg-gray-50 rounded-xl p-6">
+              <WizardInputRow label="Numero dipendenti (FTE)" values={inputs.fte} inputKey="fte" unit="FTE" step={1} help="Full-Time Equivalent: numero di dipendenti a tempo pieno." />
+              <WizardInputRow label="RAL media" values={inputs.ral} inputKey="ral" unit="€/anno" step={1000} help="Retribuzione Annua Lorda media per dipendente." />
+              <WizardInputRow label="Welfare %" values={inputs.welfare.map(v => v * 100)} inputKey="welfare" unit="%" step={1} help="Percentuale di benefit aggiuntivi (buoni pasto, assicurazione, formazione...)." />
+            </div>
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <div className="text-sm text-blue-800">
+                <strong>Costo totale personale stimato:</strong>
+                <div className="grid grid-cols-3 gap-4 mt-2">
+                  {[0, 1, 2].map(y => (
+                    <div key={y}>Anno {y + 1}: <strong>€{fmt(inputs.fte[y] * inputs.ral[y] * (1 + inputs.welfare[y]) * 1.4)}</strong></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 6:
+        return (
+          <div className="fade-in">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">I Finanziamenti</h2>
+            <p className="text-gray-600 mb-6">Definisci le fonti di finanziamento per il tuo progetto.</p>
+            <InfoBox type="info">Mix di equity (founders, seed, series) e grants permette di bilanciare diluzione e runway.</InfoBox>
+            <div className="bg-gray-50 rounded-xl p-6">
+              <WizardInputRow label="Capitale Founders" values={inputs.capitaleFounders} inputKey="capitaleFounders" unit="€" step={10000} help="Capitale iniziale versato dai fondatori." />
+              <WizardInputRow label="Seed Round" values={inputs.seed} inputKey="seed" unit="€" step={10000} help="Primo round di finanziamento da angel/VC." />
+              <WizardInputRow label="Series A" values={inputs.seriesA} inputKey="seriesA" unit="€" step={100000} help="Round di crescita tipicamente 1-5M€." />
+              <WizardInputRow label="Grants & Contributi" values={inputs.grants} inputKey="grants" unit="€" step={10000} help="Finanziamenti a fondo perduto (EU, ASI, regionali...)." />
+            </div>
+            <div className="mt-4 p-4 bg-green-50 rounded-lg">
+              <div className="text-sm text-green-800">
+                <strong>Totale funding:</strong> €{fmt(inputs.capitaleFounders.reduce((a, b) => a + b, 0) + inputs.seed.reduce((a, b) => a + b, 0) + inputs.seriesA.reduce((a, b) => a + b, 0) + inputs.grants.reduce((a, b) => a + b, 0))}
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const renderWizard = () => (
+    <div className="max-w-4xl mx-auto py-8 px-4">
+      <WizardProgress />
+      <div className="bg-white rounded-2xl shadow-lg p-8">
+        <div className="text-sm text-gray-500 mb-4">
+          Passo {wizardStep} di 6: <span className="font-medium text-gray-700">{WIZARD_STEPS[wizardStep - 1].title}</span>
+        </div>
+        {renderWizardStep()}
+        <WizardNav />
+      </div>
+    </div>
+  );
+
+  const sheets = ['DASHBOARD', 'SIMULATORE', 'SCENARI', 'ASSUMPTIONS', 'MERCATO', 'RICAVI', 'COSTI', 'CONTO_ECONOMICO', 'STATO_PATRIMONIALE', 'CASH_FLOW', 'KPI_CLASSICI', 'KPI_AVANZATI', 'VALUATION', 'SENSITIVITY'];
 
   return (
     <div className="min-h-screen bg-gray-100">
       <KPIInfoModal />
-
-      {/* HEADER */}
+      <style>{`.fade-in { animation: fadeIn 0.3s ease-in-out; } @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }`}</style>
       <header className="bg-gradient-to-r from-blue-900 to-blue-700 text-white p-3 shadow-lg">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Satellite size={28} />
-            <div>
-              <h1 className="text-lg font-bold">NanoSat IoT Business Plan</h1>
-              <p className="text-blue-200 text-xs">Modello Integrato CE/SP/CF</p>
-            </div>
+            <div><h1 className="text-lg font-bold">NanoSat IoT Business Plan</h1><p className="text-blue-200 text-xs">Modello Integrato CE/SP/CF - Il bilancio quadra ✓</p></div>
           </div>
-
-          {/* View Toggle */}
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 bg-blue-800 rounded-lg p-1">
-              <button
-                onClick={() => switchView('dashboard')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition ${viewMode === 'dashboard' ? 'bg-white text-blue-900' : 'text-white hover:bg-blue-600'}`}
-              >
-                <LayoutDashboard size={18} /> Dashboard
+            <div className="flex items-center gap-1 bg-blue-800 rounded p-1">
+              <button onClick={() => setViewMode('dashboard')} className={`flex items-center gap-2 px-4 py-1.5 rounded text-sm font-medium transition ${viewMode === 'dashboard' ? 'bg-white text-blue-900' : 'text-white hover:bg-blue-600'}`}>
+                <LayoutDashboard size={16} /> Dashboard
               </button>
-              <button
-                onClick={() => switchView('wizard')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition ${viewMode === 'wizard' ? 'bg-white text-blue-900' : 'text-white hover:bg-blue-600'}`}
-              >
-                <Compass size={18} /> Guida
+              <button onClick={() => setViewMode('wizard')} className={`flex items-center gap-2 px-4 py-1.5 rounded text-sm font-medium transition ${viewMode === 'wizard' ? 'bg-white text-blue-900' : 'text-white hover:bg-blue-600'}`}>
+                <Compass size={16} /> Guida
               </button>
             </div>
-
             {viewMode === 'dashboard' && (
-              <div className="flex items-center gap-2 bg-blue-800 rounded p-1">
+              <div className="flex items-center gap-1 bg-blue-800 rounded p-1">
                 {[1, 2, 3].map(id => (
                   <button key={id} onClick={() => loadScenario(id)} className={`px-4 py-1.5 rounded text-sm font-medium transition ${scenarioId === id ? 'bg-white text-blue-900' : 'text-white hover:bg-blue-600'}`}>{SCENARI[id].name}</button>
                 ))}
@@ -1211,39 +1545,31 @@ export default function NanoSatBusinessPlanApp() {
           </div>
         </div>
       </header>
-
-      {/* Dashboard Tabs */}
-      {viewMode === 'dashboard' && (
-        <div className="bg-gray-300 border-b border-gray-400 overflow-x-auto">
-          <div className="max-w-7xl mx-auto flex">
-            {sheets.map(sheet => (
-              <button key={sheet} onClick={() => setActiveSheet(sheet)} className={`px-3 py-2 text-xs font-medium border-r border-gray-400 whitespace-nowrap transition ${activeSheet === sheet ? 'bg-white text-blue-800 border-t-2 border-t-blue-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-100'}`}>{sheet.replace('_', ' ')}</button>
-            ))}
-          </div>
+      {viewMode === 'wizard' ? (
+        <div className="fade-in">
+          {renderWizard()}
         </div>
-      )}
-
-      {/* MAIN CONTENT */}
-      <main className="max-w-7xl mx-auto p-4">
-        <div className={`transition-opacity duration-150 ${fadeClass}`}>
-          {viewMode === 'wizard' ? (
-            renderWizard()
-          ) : (
-            <div className="bg-white rounded shadow overflow-auto max-h-[calc(100vh-180px)]">
-              {renderSheet()}
+      ) : (
+        <>
+          <div className="bg-gray-300 border-b border-gray-400 overflow-x-auto">
+            <div className="max-w-7xl mx-auto flex">
+              {sheets.map(sheet => (
+                <button key={sheet} onClick={() => setActiveSheet(sheet)} className={`px-3 py-2 text-xs font-medium border-r border-gray-400 whitespace-nowrap transition ${activeSheet === sheet ? 'bg-white text-blue-800 border-t-2 border-t-blue-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-100'}`}>{sheet.replace('_', ' ')}</button>
+              ))}
             </div>
-          )}
-        </div>
-      </main>
-
-      {/* FOOTER */}
-      <footer className="bg-gray-700 text-white p-2 text-center text-xs">
-        <span className="inline-flex items-center gap-4">
-          <span className="flex items-center gap-1"><span className="w-3 h-3 bg-yellow-100 border border-yellow-400 rounded"></span> INPUT</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-50 border border-green-300 rounded"></span> CALC</span>
-          <span>Bilancio quadra: Attivo = Passivo + PN</span>
-        </span>
-      </footer>
+          </div>
+          <main className="max-w-7xl mx-auto p-4">
+            <div className="bg-white rounded shadow overflow-auto max-h-[calc(100vh-180px)]">{renderSheet()}</div>
+          </main>
+          <footer className="bg-gray-700 text-white p-2 text-center text-xs">
+            <span className="inline-flex items-center gap-4">
+              <span className="flex items-center gap-1"><span className="w-3 h-3 bg-yellow-100 border border-yellow-400 rounded"></span> INPUT</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-50 border border-green-300 rounded"></span> CALC</span>
+              <span>✓ Bilancio quadra: Attivo = Passivo + PN</span>
+            </span>
+          </footer>
+        </>
+      )}
     </div>
   );
 }
