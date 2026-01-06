@@ -2,21 +2,25 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis } from 'recharts';
 import { Satellite, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Info, Lightbulb, Sliders, BookOpen, Target, ArrowUpRight, ArrowDownRight, HelpCircle, ChevronRight, ChevronLeft, Check, LayoutDashboard, Compass } from 'lucide-react';
 
-// Scenari - v2 con clienti e sensori separati
+// Scenari - v3 con infrastruttura 2 fasi (Hosted Payload + Space-as-a-Service)
 const SCENARI = {
   1: {
     name: 'WORST',
     // Clienti e sensori
     numClienti: [50, 100, 175],
     sensoriPerCliente: [50, 100, 200],
-    // sensoriTotali: [2500, 10000, 35000] - calcolato
     prezzo: [3.0, 2.5, 2.0],
     churn: 0.03,
-    // Infrastruttura
-    satelliti: [2, 4, 6],
-    costoSat: [100000, 90000, 80000],
-    costoLancio: 20000,
-    capacitaSatellite: 5000,
+    // FASE 1: Hosted Payload (Anno 1)
+    fase1_numPayload: 2,
+    fase1_costoSlot: 180000,
+    fase1_capacitaPayload: 1500,
+    // FASE 2: Space-as-a-Service (Anno 2-3)
+    fase2_feeSetup: 1000000,
+    fase2_satAnno2: 4,
+    fase2_satAnno3: 8,
+    fase2_canoneSat: 250000,
+    fase2_capacitaSat: 8000,
     // Team e costi
     fte: [6, 10, 16],
     ral: 48000,
@@ -32,13 +36,19 @@ const SCENARI = {
     name: 'MEDIUM',
     numClienti: [100, 250, 500],
     sensoriPerCliente: [50, 100, 200],
-    // sensoriTotali: [5000, 25000, 100000] - calcolato
     prezzo: [3.5, 3.0, 2.5],
     churn: 0.02,
-    satelliti: [4, 8, 12],
-    costoSat: [80000, 70000, 60000],
-    costoLancio: 15000,
-    capacitaSatellite: 5000,
+    // FASE 1: Hosted Payload (Anno 1)
+    fase1_numPayload: 3,
+    fase1_costoSlot: 150000,
+    fase1_capacitaPayload: 2000,
+    // FASE 2: Space-as-a-Service (Anno 2-3)
+    fase2_feeSetup: 750000,
+    fase2_satAnno2: 6,
+    fase2_satAnno3: 12,
+    fase2_canoneSat: 200000,
+    fase2_capacitaSat: 10000,
+    // Team e costi
     fte: [9, 17, 27],
     ral: 50000,
     cac: [25, 20, 15],
@@ -52,13 +62,19 @@ const SCENARI = {
     name: 'BEST',
     numClienti: [160, 450, 1000],
     sensoriPerCliente: [50, 100, 200],
-    // sensoriTotali: [8000, 45000, 200000] - calcolato
     prezzo: [4.0, 3.5, 3.0],
     churn: 0.01,
-    satelliti: [6, 14, 24],
-    costoSat: [70000, 60000, 50000],
-    costoLancio: 12000,
-    capacitaSatellite: 5000,
+    // FASE 1: Hosted Payload (Anno 1)
+    fase1_numPayload: 4,
+    fase1_costoSlot: 120000,
+    fase1_capacitaPayload: 2500,
+    // FASE 2: Space-as-a-Service (Anno 2-3)
+    fase2_feeSetup: 500000,
+    fase2_satAnno2: 10,
+    fase2_satAnno3: 20,
+    fase2_canoneSat: 150000,
+    fase2_capacitaSat: 12000,
+    // Team e costi
     fte: [12, 25, 40],
     ral: 52000,
     cac: [18, 14, 10],
@@ -68,6 +84,22 @@ const SCENARI = {
     seriesA: 3500000,
     grants: 1000000
   }
+};
+
+// Provider di infrastruttura spaziale
+const INFRA_PROVIDERS = {
+  fase1: [
+    { id: 'spire', name: 'Spire Global', costoRange: '100-200k€', leadTime: '3-6 mesi', note: 'Leader hosted payload, 170+ satelliti lanciati' },
+    { id: 'dorbit', name: 'D-Orbit', costoRange: '150-250k€', leadTime: '3-6 mesi', note: 'Italiano, plug-and-play standardizzato' },
+    { id: 'nanoavionics', name: 'NanoAvionics', costoRange: '100-180k€', leadTime: '6-9 mesi', note: 'Esperienza IoT (Lacuna Space)' },
+    { id: 'altro', name: 'Altro', costoRange: '-', leadTime: '-', note: 'Provider personalizzato' }
+  ],
+  fase2: [
+    { id: 'spire', name: 'Spire Space Services', costoRange: '150-250k€/anno', note: 'Modello Lacuna Space: costruisce e opera' },
+    { id: 'dorbit', name: 'D-Orbit SaaS', costoRange: '200-300k€/anno', note: 'Italiano, programma IRIDE' },
+    { id: 'aac', name: 'AAC Clyde Space', costoRange: '180-280k€/anno', note: 'UK/Svezia' },
+    { id: 'opencosmos', name: 'Open Cosmos', costoRange: '200-350k€/anno', note: 'UK, ESA partner' }
+  ]
 };
 
 // Descrizioni KPI complete
@@ -280,18 +312,29 @@ export default function NanoSatDashboard() {
     churn: [0.02, 0.02, 0.02],             // Churn mensile
     churnYoY: 0,                           // Variazione YoY (0 = stabile)
 
-    // === INFRASTRUTTURA SATELLITI ===
-    // Parametri per calcolo automatico
-    capacitaSatellite: 5000,               // Sensori gestibili per satellite
-    fattoreRidondanza: 1.5,                // 1.0 min, 1.5 consigliato, 2.0 sicuro
-    coperturaTarget: 0.30,                 // 30% superficie terrestre
-    latenzaMax: 6,                         // ore max latenza accettabile
-    // Override manuale (se modalità manual)
-    satelliti: [4, 8, 12],                 // Numero satelliti per anno
-    costoSat: [80000, 70000, 60000],       // Costo produzione €/satellite
-    costoLancio: [15000, 15000, 15000],    // Costo lancio €/satellite
-    vitaSatellite: [3, 3, 3],              // Anni vita utile
-    riduzioneCapexYoY: 0.10,               // -10% YoY (learning curve)
+    // === INFRASTRUTTURA SATELLITI (2 FASI) ===
+
+    // FASE 1: HOSTED PAYLOAD (Anno 1)
+    fase1_provider: 'spire',               // Provider selezionato
+    fase1_numPayload: 3,                   // Numero payload slot
+    fase1_costoSlot: 150000,               // €/slot (include lancio e ops base)
+    fase1_durataMesi: 12,                  // Durata contratto hosting
+    fase1_capacitaPayload: 2000,           // Sensori gestibili per payload
+
+    // FASE 2: SPACE-AS-A-SERVICE (Anno 2-3)
+    fase2_provider: 'spire',               // Provider selezionato
+    fase2_feeSetup: 750000,                // Fee una tantum (design, integrazione)
+    fase2_satAnno2: 6,                     // Satelliti cumulativi fine Anno 2
+    fase2_satAnno3: 12,                    // Satelliti cumulativi fine Anno 3
+    fase2_canoneSat: 200000,               // Canone annuo per satellite
+    fase2_capacitaSat: 10000,              // Sensori gestibili per satellite
+    // Toggle cosa include il canone
+    fase2_inclProduzione: true,            // Costruzione satellite inclusa
+    fase2_inclLancio: true,                // Costo lancio incluso
+    fase2_inclOperations: true,            // Gestione satellite inclusa
+    fase2_inclGround: true,                // Accesso ground station incluso
+    fase2_inclFrequenze: false,            // Licenze frequenze incluse
+    fase2_inclAssicurazione: false,        // Assicurazione satellite inclusa
 
     // === COSTI ACQUISIZIONE (CAC) ===
     marketingBudget: [50000, 100000, 150000],  // Budget marketing annuo
@@ -354,11 +397,16 @@ export default function NanoSatDashboard() {
       // Pricing
       prezzo: [...s.prezzo],
       churn: [s.churn, s.churn, s.churn],
-      // Infrastruttura
-      satelliti: [...s.satelliti],
-      costoSat: [...s.costoSat],
-      costoLancio: [s.costoLancio, s.costoLancio, s.costoLancio],
-      capacitaSatellite: s.capacitaSatellite,
+      // FASE 1: Hosted Payload
+      fase1_numPayload: s.fase1_numPayload,
+      fase1_costoSlot: s.fase1_costoSlot,
+      fase1_capacitaPayload: s.fase1_capacitaPayload,
+      // FASE 2: Space-as-a-Service
+      fase2_feeSetup: s.fase2_feeSetup,
+      fase2_satAnno2: s.fase2_satAnno2,
+      fase2_satAnno3: s.fase2_satAnno3,
+      fase2_canoneSat: s.fase2_canoneSat,
+      fase2_capacitaSat: s.fase2_capacitaSat,
       // Team e costi
       fte: [...s.fte],
       ral: [s.ral, s.ral, s.ral],
@@ -467,34 +515,77 @@ export default function NanoSatDashboard() {
     const arpuAnnuale = arpuMensile.map(a => a * 12);
 
     // ═══════════════════════════════════════════════════════════════
-    // 2. INFRASTRUTTURA SATELLITI (CALCOLO AUTOMATICO) - NUOVO
+    // 2. INFRASTRUTTURA SATELLITI (2 FASI)
     // ═══════════════════════════════════════════════════════════════
-    // Satelliti necessari per capacità
-    const satellitiCapacita = sensoriFine.map(s =>
-      Math.ceil(s / i.capacitaSatellite * i.fattoreRidondanza)
-    );
 
-    // Satelliti necessari per copertura (formula semplificata LEO)
-    // Un satellite LEO a 500km "vede" ~3% della superficie
-    const coperturaPerSat = 0.03;
-    const satellitiCopertura = Math.ceil(
-      (i.coperturaTarget / coperturaPerSat) * (24 / i.latenzaMax)
-    );
+    // --- FASE 1: HOSTED PAYLOAD (Anno 1) ---
+    const fase1 = {
+      provider: i.fase1_provider,
+      numPayload: i.fase1_numPayload,
+      costoSlot: i.fase1_costoSlot,
+      durataMesi: i.fase1_durataMesi,
+      capacitaPayload: i.fase1_capacitaPayload,
+      // Calcolati
+      costoTotale: i.fase1_numPayload * i.fase1_costoSlot,
+      capacitaTotale: i.fase1_numPayload * i.fase1_capacitaPayload,
+    };
+    fase1.costoPerSensore = fase1.capacitaTotale > 0 ? fase1.costoTotale / fase1.capacitaTotale : 0;
 
-    // Satelliti necessari = MAX(capacità, copertura)
-    const satellitiNecessari = satellitiCapacita.map(s =>
-      Math.max(s, satellitiCopertura)
-    );
+    // --- FASE 2: SPACE-AS-A-SERVICE (Anno 2-3) ---
+    const fase2 = {
+      provider: i.fase2_provider,
+      feeSetup: i.fase2_feeSetup,
+      satAnno2: i.fase2_satAnno2,
+      satAnno3: i.fase2_satAnno3,
+      canoneSat: i.fase2_canoneSat,
+      capacitaSat: i.fase2_capacitaSat,
+      // Toggle inclusi
+      inclProduzione: i.fase2_inclProduzione,
+      inclLancio: i.fase2_inclLancio,
+      inclOperations: i.fase2_inclOperations,
+      inclGround: i.fase2_inclGround,
+      inclFrequenze: i.fase2_inclFrequenze,
+      inclAssicurazione: i.fase2_inclAssicurazione,
+      // Calcolati
+      nuoviSatA2: i.fase2_satAnno2,
+      nuoviSatA3: i.fase2_satAnno3 - i.fase2_satAnno2,
+      costoAnno2: i.fase2_feeSetup + (i.fase2_satAnno2 * i.fase2_canoneSat),
+      costoAnno3: i.fase2_satAnno3 * i.fase2_canoneSat,
+      capacitaA2: i.fase2_satAnno2 * i.fase2_capacitaSat,
+      capacitaA3: i.fase2_satAnno3 * i.fase2_capacitaSat,
+    };
 
-    // Usa valore calcolato o manuale in base a modalità
-    const satellitiEffettivi = modes.satelliti === 'auto'
-      ? satellitiNecessari
-      : i.satelliti;
+    // --- RIEPILOGO INFRASTRUTTURA PER ANNO ---
+    const infra = {
+      costo: [fase1.costoTotale, fase2.costoAnno2, fase2.costoAnno3],
+      capacita: [fase1.capacitaTotale, fase2.capacitaA2, fase2.capacitaA3],
+      satelliti: [fase1.numPayload, fase2.satAnno2, fase2.satAnno3],
+      modalita: ['HOSTED', 'SAAS', 'SAAS'],
+      costoTotale: fase1.costoTotale + fase2.costoAnno2 + fase2.costoAnno3,
+      capacitaFinale: fase2.capacitaA3,
+    };
 
-    // Warning se sottodimensionato
-    const satellitiWarning = satellitiEffettivi.map((s, y) =>
-      s < satellitiNecessari[y]
-    );
+    // --- CLASSIFICAZIONE CONTABILE (Space-as-a-Service) ---
+    // FASE 1: Hosted payload = tutto OPEX (servizio)
+    // FASE 2: Fee Setup = CAPEX (ammortizzato 3 anni), Canoni = OPEX
+    const infraContabile = {
+      CAPEX: [0, fase2.feeSetup, 0],
+      OPEX: [fase1.costoTotale, fase2.satAnno2 * fase2.canoneSat, fase2.satAnno3 * fase2.canoneSat],
+      ammortamento: [0, fase2.feeSetup / 3, fase2.feeSetup / 3],
+    };
+
+    // --- VALIDAZIONE CAPACITÀ vs TARGET ---
+    const infraValidazione = sensoriTarget.map((target, y) => ({
+      target: target,
+      capacita: infra.capacita[y],
+      utilizzo: infra.capacita[y] > 0 ? (target / infra.capacita[y]) * 100 : 0,
+      warning: target > infra.capacita[y] * 0.9,
+      errore: target > infra.capacita[y]
+    }));
+
+    // Satelliti effettivi per retrocompatibilità
+    const satellitiEffettivi = infra.satelliti;
+    const satellitiWarning = infraValidazione.map(v => v.warning);
 
     // ═══════════════════════════════════════════════════════════════
     // 3. RICAVI
@@ -542,29 +633,42 @@ export default function NanoSatDashboard() {
     const marketingSalesBudget = [0, 1, 2].map(y => i.marketingBudget[y] + i.salesBudget[y]);
 
     // ═══════════════════════════════════════════════════════════════
-    // 6. CAPEX E AMMORTAMENTI
+    // 6. CAPEX E AMMORTAMENTI (MODELLO SPACE-AS-A-SERVICE)
     // ═══════════════════════════════════════════════════════════════
-    const capexSatelliti = satellitiEffettivi.map((s, y) => s * (i.costoSat[y] + i.costoLancio[y]));
+    // Con Space-as-a-Service:
+    // - Anno 1 (Hosted Payload): TUTTO OPEX (servizio esterno)
+    // - Anno 2: Fee Setup = CAPEX, Canoni = OPEX
+    // - Anno 3: Solo Canoni = OPEX
+
+    const capexInfra = infraContabile.CAPEX;  // [0, feeSetup, 0]
+    const opexInfra = infraContabile.OPEX;    // [hostedPayload, canoniA2, canoniA3]
+    const ammInfra = infraContabile.ammortamento; // [0, feeSetup/3, feeSetup/3]
+
     const capexAttrezzature = [...i.attrezzature];
-    const capexTotale = capexSatelliti.map((c, y) => c + capexAttrezzature[y]);
-    
-    const ammSatellitiAnno = [
-      capexSatelliti[0] / i.vitaSatellite[0],
-      capexSatelliti[0] / i.vitaSatellite[0] + capexSatelliti[1] / i.vitaSatellite[1],
-      capexSatelliti[0] / i.vitaSatellite[0] + capexSatelliti[1] / i.vitaSatellite[1] + capexSatelliti[2] / i.vitaSatellite[2]
+    const capexTotale = capexInfra.map((c, y) => c + capexAttrezzature[y]);
+
+    // Ammortamenti: solo Fee Setup (3 anni) + attrezzature (5 anni)
+    const ammInfraAnno = [
+      ammInfra[0],
+      ammInfra[0] + ammInfra[1],
+      ammInfra[0] + ammInfra[1] + ammInfra[2]
     ];
     const ammAttrezzAnno = [
       capexAttrezzature[0] / 5,
       capexAttrezzature[0] / 5 + capexAttrezzature[1] / 5,
       capexAttrezzature[0] / 5 + capexAttrezzature[1] / 5 + capexAttrezzature[2] / 5
     ];
-    const ammTotaleAnno = ammSatellitiAnno.map((a, y) => a + ammAttrezzAnno[y]);
+    const ammTotaleAnno = ammInfraAnno.map((a, y) => a + ammAttrezzAnno[y]);
+
+    // Per retrocompatibilità
+    const capexSatelliti = capexInfra;
+    const ammSatellitiAnno = ammInfraAnno;
 
     // ═══════════════════════════════════════════════════════════════
-    // 7. CONTO ECONOMICO
+    // 7. CONTO ECONOMICO (CON INFRA OPEX)
     // ═══════════════════════════════════════════════════════════════
-    // Costi diretti = COGS (banda, cloud, support) + ground station operations
-    const costiDiretti = cogsTotale.map((c, y) => c + groundAnnuo[y]);
+    // Costi diretti = COGS (banda, cloud, support) + ground station + INFRA OPEX
+    const costiDiretti = cogsTotale.map((c, y) => c + groundAnnuo[y] + opexInfra[y]);
     const margineLordo = ricaviTotali.map((r, y) => r - costiDiretti[y]);
     const margineLordoPct = ricaviTotali.map((r, y) => r > 0 ? margineLordo[y] / r : 0);
 
@@ -573,7 +677,7 @@ export default function NanoSatDashboard() {
     );
     const ebitda = margineLordo.map((m, y) => m - totCostiOperativi[y]);
     const ebitdaPct = ricaviTotali.map((r, y) => r > 0 ? ebitda[y] / r : 0);
-    
+
     const ebit = ebitda.map((e, y) => e - ammTotaleAnno[y]);
     const ebitPct = ricaviTotali.map((r, y) => r > 0 ? ebit[y] / r : 0);
     const imposteCompetenza = ebit.map(e => e > 0 ? e * 0.279 : 0);
@@ -689,8 +793,10 @@ export default function NanoSatDashboard() {
       sensoriInizio, sensoriNuovi, sensoriChurn, sensoriFine, sensoriMedi,
       // ARPU (NUOVO)
       arpuBase, arpuPremium, arpuHardware, arpuMensile, arpuAnnuale, arpuEffettivo,
-      // Satelliti (NUOVO)
-      satellitiCapacita, satellitiCopertura, satellitiNecessari, satellitiEffettivi, satellitiWarning,
+      // INFRASTRUTTURA 2 FASI (NUOVO)
+      fase1, fase2, infra, infraContabile, infraValidazione,
+      satellitiEffettivi, satellitiWarning,
+      opexInfra, capexInfra, ammInfra,
       // COGS (NUOVO)
       costoBandaTotale, costoCloudTotale, costoSupportTotale, cogsTotale,
       // Ricavi
@@ -699,7 +805,7 @@ export default function NanoSatDashboard() {
       costoPersonale, affittoAnnuo, groundAnnuo, cloudAnnuo, altriOpex, opexTotale,
       cacCalcolato, cacUnitario, cacTotale, marketingSalesBudget,
       // CAPEX
-      capexSatelliti, capexAttrezzature, capexTotale, ammSatellitiAnno, ammAttrezzAnno, ammTotaleAnno,
+      capexSatelliti, capexAttrezzature, capexTotale, ammSatellitiAnno, ammAttrezzAnno, ammTotaleAnno, ammInfraAnno,
       // Conto Economico
       costiDiretti, margineLordo, margineLordoPct, totCostiOperativi,
       ebitda, ebitdaPct, ebit, ebitPct, imposteCompetenza, utileNetto, utilePct,
@@ -1899,8 +2005,8 @@ export default function NanoSatDashboard() {
     { id: 1, title: 'Scenario Base', subtitle: 'Scegli punto di partenza' },
     { id: 2, title: 'Clienti e Domanda', subtitle: 'Clienti, sensori, churn' },
     { id: 3, title: 'Ricavi e Pricing', subtitle: 'Canoni e ARPU' },
-    { id: 4, title: 'Infrastruttura', subtitle: 'Satelliti e capacità' },
-    { id: 5, title: 'Costi', subtitle: 'CAPEX, OPEX, Team' },
+    { id: 4, title: 'Infrastruttura', subtitle: 'Hosted Payload + SaaS' },
+    { id: 5, title: 'Costi', subtitle: 'Team, OPEX, CAC' },
     { id: 6, title: 'Finanziamenti', subtitle: 'Fonti di funding' }
   ];
 
@@ -2010,6 +2116,7 @@ export default function NanoSatDashboard() {
               {[1, 2, 3].map(id => {
                 const s = SCENARI[id];
                 const sensoriY3 = s.numClienti[2] * s.sensoriPerCliente[2];
+                const infraCosto = s.fase1_numPayload * s.fase1_costoSlot + s.fase2_feeSetup + s.fase2_satAnno2 * s.fase2_canoneSat + s.fase2_satAnno3 * s.fase2_canoneSat;
                 return (
                   <button
                     key={id}
@@ -2024,8 +2131,9 @@ export default function NanoSatDashboard() {
                     <div className="text-sm text-gray-600 space-y-1">
                       <div>👥 {s.numClienti[2].toLocaleString()} clienti (Y3)</div>
                       <div>📡 {sensoriY3.toLocaleString()} sensori (Y3)</div>
-                      <div>🛰️ {s.satelliti[2]} satelliti (Y3)</div>
+                      <div>📦 {s.fase1_numPayload} payload → 🛰️ {s.fase2_satAnno3} sat (Y3)</div>
                       <div>👨‍💼 {s.fte[2]} dipendenti (Y3)</div>
+                      <div>🏗️ €{(infraCosto / 1e6).toFixed(1)}M infra (3 anni)</div>
                       <div>💰 €{((s.seed + s.seriesA + s.grants) / 1000).toFixed(0)}k funding</div>
                     </div>
                   </button>
@@ -2099,77 +2207,337 @@ export default function NanoSatDashboard() {
           </div>
         );
 
-      // STEP 4: INFRASTRUTTURA
+      // STEP 4: INFRASTRUTTURA (2 FASI)
       case 4:
         return (
           <div className="fade-in">
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Infrastruttura Satelliti</h2>
-            <p className="text-gray-600 mb-6">Configura i parametri della costellazione. I satelliti necessari vengono calcolati automaticamente.</p>
+            <p className="text-gray-600 mb-4">Strategia a 2 fasi: Hosted Payload (Anno 1) + Space-as-a-Service (Anno 2-3)</p>
 
-            {/* Toggle Auto/Manual */}
-            <div className="flex gap-4 mb-6">
-              <button
-                onClick={() => updateInputMode('satelliti', 'auto')}
-                className={`flex-1 p-3 rounded-lg border-2 transition ${inputModes.satelliti === 'auto' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
-              >
-                <div className="font-medium">🤖 Calcolo Automatico</div>
-                <div className="text-xs text-gray-500">Basato su capacità e copertura</div>
-              </button>
-              <button
-                onClick={() => updateInputMode('satelliti', 'manual')}
-                className={`flex-1 p-3 rounded-lg border-2 transition ${inputModes.satelliti === 'manual' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
-              >
-                <div className="font-medium">✏️ Inserimento Manuale</div>
-                <div className="text-xs text-gray-500">Imposta direttamente il numero</div>
-              </button>
+            {/* Info Box */}
+            <InfoBox type="tip">
+              <strong>Approccio consigliato:</strong> Inizia con hosted payload per validare la tecnologia con investimento limitato (300-500k€), poi scala con satelliti dedicati via Space-as-a-Service (modello Lacuna Space).
+            </InfoBox>
+
+            {/* ═══════════════════ FASE 1: HOSTED PAYLOAD ═══════════════════ */}
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-6 mt-6 border border-blue-200">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-2xl">📦</span>
+                <div>
+                  <h3 className="font-bold text-gray-800">FASE 1: Hosted Payload</h3>
+                  <p className="text-sm text-gray-600">Anno 1 - Validazione tecnologia</p>
+                </div>
+              </div>
+
+              {/* Provider Selector */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+                <select
+                  value={inputs.fase1_provider}
+                  onChange={(e) => setInputs(prev => ({ ...prev, fase1_provider: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                >
+                  {INFRA_PROVIDERS.fase1.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.costoRange})</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">{INFRA_PROVIDERS.fase1.find(p => p.id === inputs.fase1_provider)?.note}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Numero Payload</label>
+                  <input
+                    type="number"
+                    value={inputs.fase1_numPayload}
+                    onChange={(e) => setInputs(prev => ({ ...prev, fase1_numPayload: parseInt(e.target.value) || 0 }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-right"
+                    min={1}
+                    max={6}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Slot su satelliti esistenti</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Costo per Slot</label>
+                  <div className="flex items-center">
+                    <input
+                      type="number"
+                      value={inputs.fase1_costoSlot}
+                      onChange={(e) => setInputs(prev => ({ ...prev, fase1_costoSlot: parseInt(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-right"
+                      step={10000}
+                    />
+                    <span className="ml-2 text-gray-500">€</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Include lancio e ops base</p>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Capacità per Payload</label>
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    value={inputs.fase1_capacitaPayload}
+                    onChange={(e) => setInputs(prev => ({ ...prev, fase1_capacitaPayload: parseInt(e.target.value) || 0 }))}
+                    className="w-40 px-3 py-2 border border-gray-300 rounded-lg text-right"
+                    step={500}
+                  />
+                  <span className="ml-2 text-gray-500">sensori/payload</span>
+                </div>
+              </div>
+
+              {/* Riepilogo Fase 1 */}
+              <div className="p-4 bg-white rounded-lg border border-blue-200">
+                <div className="text-sm font-medium text-blue-800 mb-2">📊 RIEPILOGO FASE 1</div>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-xs text-gray-500">Costo Totale</div>
+                    <div className="text-lg font-bold text-blue-700">{fmtK(calc.fase1?.costoTotale)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Capacità</div>
+                    <div className="text-lg font-bold text-blue-700">{fmt(calc.fase1?.capacitaTotale)} sens.</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Utilizzo</div>
+                    <div className={`text-lg font-bold ${calc.infraValidazione?.[0]?.warning ? 'text-orange-600' : 'text-green-600'}`}>
+                      {fmt(calc.infraValidazione?.[0]?.utilizzo, 0)}%
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {inputModes.satelliti === 'auto' ? (
-              <div className="bg-gray-50 rounded-xl p-6">
-                <div className="mb-4">
-                  <label className="font-medium text-gray-700">Capacità per Satellite</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <input type="number" value={inputs.capacitaSatellite} onChange={(e) => updateInput('capacitaSatellite', 0, parseInt(e.target.value) || 0)} className="w-32 px-3 py-2 border rounded-lg text-right" />
-                    <span className="text-gray-500">sensori/satellite</span>
-                  </div>
-                </div>
-                <div className="mb-4">
-                  <label className="font-medium text-gray-700">Fattore Ridondanza</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <input type="number" value={inputs.fattoreRidondanza} onChange={(e) => updateInput('fattoreRidondanza', 0, parseFloat(e.target.value) || 1)} step={0.1} className="w-32 px-3 py-2 border rounded-lg text-right" />
-                    <span className="text-gray-500">x (1.0 min, 1.5 consigliato)</span>
-                  </div>
-                </div>
-                <div className="mb-4">
-                  <label className="font-medium text-gray-700">Latenza Max Accettabile</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <input type="number" value={inputs.latenzaMax} onChange={(e) => updateInput('latenzaMax', 0, parseInt(e.target.value) || 1)} className="w-32 px-3 py-2 border rounded-lg text-right" />
-                    <span className="text-gray-500">ore</span>
-                  </div>
-                </div>
-                <div className="mt-4 p-4 bg-blue-100 rounded-lg">
-                  <div className="text-sm font-medium text-blue-800">Satelliti Calcolati:</div>
-                  <div className="grid grid-cols-3 gap-4 mt-2">
-                    {[0, 1, 2].map(y => (
-                      <div key={y} className="text-center">
-                        <div className="text-xs text-gray-500">Anno {y + 1}</div>
-                        <div className="text-xl font-bold text-blue-700">{calc.satellitiNecessari[y]}</div>
-                      </div>
-                    ))}
-                  </div>
+            {/* ═══════════════════ FASE 2: SPACE-AS-A-SERVICE ═══════════════════ */}
+            <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-6 mt-6 border border-purple-200">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-2xl">🚀</span>
+                <div>
+                  <h3 className="font-bold text-gray-800">FASE 2: Space-as-a-Service</h3>
+                  <p className="text-sm text-gray-600">Anno 2-3 - Costellazione dedicata</p>
                 </div>
               </div>
-            ) : (
-              <div className="bg-gray-50 rounded-xl p-6">
-                <WizardInputRow label="Numero Satelliti" values={inputs.satelliti} inputKey="satelliti" unit="sat" step={1} help="Satelliti da lanciare per anno." />
-              </div>
-            )}
 
-            <div className="bg-gray-50 rounded-xl p-6 mt-4">
-              <h3 className="font-medium text-gray-700 mb-4">Costi Satelliti</h3>
-              <WizardInputRow label="Costo Produzione" values={inputs.costoSat} inputKey="costoSat" unit="€/sat" step={5000} help="Costo costruzione satellite." />
-              <WizardInputRow label="Costo Lancio" values={inputs.costoLancio} inputKey="costoLancio" unit="€/sat" step={1000} help="Costo per mettere in orbita." />
-              <WizardInputRow label="Vita Utile" values={inputs.vitaSatellite} inputKey="vitaSatellite" unit="anni" step={1} help="Durata operativa (ammortamento)." />
+              {/* Provider Selector */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+                <select
+                  value={inputs.fase2_provider}
+                  onChange={(e) => setInputs(prev => ({ ...prev, fase2_provider: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                >
+                  {INFRA_PROVIDERS.fase2.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.costoRange})</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">{INFRA_PROVIDERS.fase2.find(p => p.id === inputs.fase2_provider)?.note}</p>
+              </div>
+
+              {/* Fee Setup */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fee Setup (una tantum Anno 2)</label>
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    value={inputs.fase2_feeSetup}
+                    onChange={(e) => setInputs(prev => ({ ...prev, fase2_feeSetup: parseInt(e.target.value) || 0 }))}
+                    className="w-48 px-3 py-2 border border-gray-300 rounded-lg text-right"
+                    step={50000}
+                  />
+                  <span className="ml-2 text-gray-500">€</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Design missione, integrazione payload, documentazione</p>
+              </div>
+
+              {/* Satelliti */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Satelliti Anno 2</label>
+                  <input
+                    type="number"
+                    value={inputs.fase2_satAnno2}
+                    onChange={(e) => setInputs(prev => ({ ...prev, fase2_satAnno2: parseInt(e.target.value) || 0 }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-right"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Cumulativo fine anno</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Satelliti Anno 3</label>
+                  <input
+                    type="number"
+                    value={inputs.fase2_satAnno3}
+                    onChange={(e) => setInputs(prev => ({ ...prev, fase2_satAnno3: parseInt(e.target.value) || 0 }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-right"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Cumulativo fine anno</p>
+                </div>
+              </div>
+
+              {/* Canone e Capacità */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Canone per Satellite</label>
+                  <div className="flex items-center">
+                    <input
+                      type="number"
+                      value={inputs.fase2_canoneSat}
+                      onChange={(e) => setInputs(prev => ({ ...prev, fase2_canoneSat: parseInt(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-right"
+                      step={10000}
+                    />
+                    <span className="ml-2 text-gray-500 text-sm">€/anno</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Capacità per Satellite</label>
+                  <div className="flex items-center">
+                    <input
+                      type="number"
+                      value={inputs.fase2_capacitaSat}
+                      onChange={(e) => setInputs(prev => ({ ...prev, fase2_capacitaSat: parseInt(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-right"
+                      step={1000}
+                    />
+                    <span className="ml-2 text-gray-500 text-sm">sensori</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cosa include */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cosa include il canone?</label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { key: 'fase2_inclProduzione', label: 'Produzione' },
+                    { key: 'fase2_inclLancio', label: 'Lancio' },
+                    { key: 'fase2_inclOperations', label: 'Operations' },
+                    { key: 'fase2_inclGround', label: 'Ground Station' },
+                    { key: 'fase2_inclFrequenze', label: 'Frequenze' },
+                    { key: 'fase2_inclAssicurazione', label: 'Assicurazione' },
+                  ].map(item => (
+                    <label key={item.key} className="flex items-center gap-1 px-3 py-1 bg-white rounded border cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={inputs[item.key]}
+                        onChange={(e) => setInputs(prev => ({ ...prev, [item.key]: e.target.checked }))}
+                        className="rounded"
+                      />
+                      <span className="text-sm">{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Riepilogo Fase 2 */}
+              <div className="p-4 bg-white rounded-lg border border-purple-200">
+                <div className="text-sm font-medium text-purple-800 mb-2">📊 RIEPILOGO FASE 2</div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-xs text-gray-500">
+                        <td></td>
+                        <td className="text-center px-2">Anno 2</td>
+                        <td className="text-center px-2">Anno 3</td>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="text-gray-600">Satelliti</td>
+                        <td className="text-center font-bold">{inputs.fase2_satAnno2}</td>
+                        <td className="text-center font-bold">{inputs.fase2_satAnno3}</td>
+                      </tr>
+                      <tr>
+                        <td className="text-gray-600">Costo</td>
+                        <td className="text-center font-bold text-purple-700">{fmtK(calc.fase2?.costoAnno2)}</td>
+                        <td className="text-center font-bold text-purple-700">{fmtK(calc.fase2?.costoAnno3)}</td>
+                      </tr>
+                      <tr>
+                        <td className="text-gray-600">Capacità</td>
+                        <td className="text-center">{fmt(calc.fase2?.capacitaA2)} sens.</td>
+                        <td className="text-center">{fmt(calc.fase2?.capacitaA3)} sens.</td>
+                      </tr>
+                      <tr>
+                        <td className="text-gray-600">Utilizzo</td>
+                        <td className={`text-center font-medium ${calc.infraValidazione?.[1]?.warning ? 'text-orange-600' : 'text-green-600'}`}>
+                          {fmt(calc.infraValidazione?.[1]?.utilizzo, 0)}%
+                        </td>
+                        <td className={`text-center font-medium ${calc.infraValidazione?.[2]?.warning ? 'text-orange-600' : 'text-green-600'}`}>
+                          {fmt(calc.infraValidazione?.[2]?.utilizzo, 0)}%
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* ═══════════════════ RIEPILOGO TOTALE ═══════════════════ */}
+            <div className="bg-gray-800 text-white rounded-xl p-6 mt-6">
+              <div className="text-sm font-medium mb-3">📊 RIEPILOGO TOTALE INFRASTRUTTURA</div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-gray-400 border-b border-gray-600">
+                      <td className="py-2"></td>
+                      <td className="text-center py-2">Anno 1</td>
+                      <td className="text-center py-2">Anno 2</td>
+                      <td className="text-center py-2">Anno 3</td>
+                      <td className="text-center py-2 font-bold">TOTALE</td>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-gray-700">
+                      <td className="py-2 text-gray-300">Modalità</td>
+                      <td className="text-center text-blue-400 text-xs">HOSTED</td>
+                      <td className="text-center text-purple-400 text-xs">SAAS</td>
+                      <td className="text-center text-purple-400 text-xs">SAAS</td>
+                      <td></td>
+                    </tr>
+                    <tr className="border-b border-gray-700">
+                      <td className="py-2 text-gray-300">Satelliti/Payload</td>
+                      <td className="text-center">{calc.infra?.satelliti[0]} slot</td>
+                      <td className="text-center">{calc.infra?.satelliti[1]} sat</td>
+                      <td className="text-center">{calc.infra?.satelliti[2]} sat</td>
+                      <td className="text-center font-bold">{calc.infra?.satelliti[2]}</td>
+                    </tr>
+                    <tr className="border-b border-gray-700">
+                      <td className="py-2 text-gray-300">Capacità</td>
+                      <td className="text-center">{fmtK(calc.infra?.capacita[0])}</td>
+                      <td className="text-center">{fmtK(calc.infra?.capacita[1])}</td>
+                      <td className="text-center">{fmtK(calc.infra?.capacita[2])}</td>
+                      <td></td>
+                    </tr>
+                    <tr className="border-b border-gray-700">
+                      <td className="py-2 text-gray-300">Target Sensori</td>
+                      <td className={`text-center ${calc.infraValidazione?.[0]?.errore ? 'text-red-400' : ''}`}>
+                        {fmtK(calc.sensoriTarget[0])}
+                      </td>
+                      <td className={`text-center ${calc.infraValidazione?.[1]?.errore ? 'text-red-400' : ''}`}>
+                        {fmtK(calc.sensoriTarget[1])}
+                      </td>
+                      <td className={`text-center ${calc.infraValidazione?.[2]?.errore ? 'text-red-400' : ''}`}>
+                        {fmtK(calc.sensoriTarget[2])}
+                      </td>
+                      <td></td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 text-gray-300 font-bold">COSTO</td>
+                      <td className="text-center font-bold text-green-400">{fmtK(calc.infra?.costo[0])}</td>
+                      <td className="text-center font-bold text-green-400">{fmtK(calc.infra?.costo[1])}</td>
+                      <td className="text-center font-bold text-green-400">{fmtK(calc.infra?.costo[2])}</td>
+                      <td className="text-center font-bold text-yellow-400 text-lg">{fmtK(calc.infra?.costoTotale)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Warning se capacità insufficiente */}
+              {calc.infraValidazione?.some(v => v.errore) && (
+                <div className="mt-4 p-3 bg-red-900/50 rounded-lg border border-red-500 text-red-200 text-sm">
+                  <strong>⚠️ Attenzione:</strong> La capacità infrastrutturale è insufficiente per i sensori target. Aumenta il numero di payload/satelliti.
+                </div>
+              )}
             </div>
           </div>
         );
