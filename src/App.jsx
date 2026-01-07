@@ -2338,34 +2338,32 @@ export default function NanoSatDashboard() {
     );
   };
 
-  const WizardInputRow = ({ label, values, inputKey, unit = '€', step = 1, help }) => (
-    <div className="mb-6">
-      <div className="flex items-center gap-2 mb-3">
-        <label className="font-medium text-gray-700">{label}</label>
-        {help && (
+  const WizardInputRow = ({ label, values, inputKey, unit = '€', step = 1, help, compact = false }) => (
+    <div className={compact ? "mb-3" : "mb-6"}>
+      <div className={`flex items-center gap-2 ${compact ? 'mb-1' : 'mb-3'}`}>
+        <label className={`${compact ? 'text-sm' : ''} font-medium text-gray-700`}>{label}</label>
+        {help && !compact && (
           <button onClick={() => setExpandedHelp(prev => ({ ...prev, [inputKey]: !prev[inputKey] }))} className="text-blue-500 hover:text-blue-700">
             <HelpCircle size={16} />
           </button>
         )}
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-2">
         {[0, 1, 2].map(y => (
-          <div key={y}>
-            <div className="text-xs text-gray-500 mb-1 font-medium">Anno {y + 1}</div>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={values[y]}
-                onChange={(e) => updateInput(inputKey, y, parseFloat(e.target.value) || 0)}
-                step={step}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right font-medium"
-              />
-              <span className="text-gray-500 text-sm whitespace-nowrap min-w-[50px]">{unit}</span>
-            </div>
+          <div key={y} className="flex items-center gap-1">
+            {!compact && <div className="text-xs text-gray-500 mb-1 font-medium">Anno {y + 1}</div>}
+            <input
+              type="number"
+              value={values?.[y] ?? 0}
+              onChange={(e) => updateInput(inputKey, y, parseFloat(e.target.value) || 0)}
+              step={step}
+              className={`w-full ${compact ? 'px-2 py-1 text-sm' : 'px-3 py-2'} border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right font-medium`}
+            />
+            <span className={`text-gray-500 ${compact ? 'text-xs' : 'text-sm'} whitespace-nowrap`}>{unit}</span>
           </div>
         ))}
       </div>
-      {expandedHelp[inputKey] && help && (
+      {!compact && expandedHelp[inputKey] && help && (
         <div className="mt-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">{help}</div>
       )}
     </div>
@@ -3159,110 +3157,180 @@ export default function NanoSatDashboard() {
 
             {/* BOTTOM-UP Section */}
             {(cacMod === 'bottomup' || cacMod === 'entrambi') && (
-              <div className="mb-6 p-6 bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl border border-purple-200">
-                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <Sliders size={18} className="text-purple-600" /> CAC BOTTOM-UP (Dettaglio)
-                </h3>
+              <div className="mb-6 bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl border border-purple-200">
+                <div className="p-4 border-b border-purple-200">
+                  <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                    <Sliders size={18} className="text-purple-600" /> CAC BOTTOM-UP (Dettaglio Costi)
+                  </h3>
+                </div>
 
-                {/* Marketing */}
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-purple-800">🎯 Marketing</span>
-                    <span className="text-sm font-bold text-purple-700">{fmtK(cacData.marketing?.totale?.[0])} / {fmtK(cacData.marketing?.totale?.[1])} / {fmtK(cacData.marketing?.totale?.[2])}</span>
+                {/* Summary Bar */}
+                <div className="p-4 bg-purple-100 border-b border-purple-200">
+                  <div className="grid grid-cols-4 gap-4 text-center">
+                    <div className="text-xs text-purple-600 font-medium">Categoria</div>
+                    <div className="text-xs text-purple-600 font-medium">Anno 1</div>
+                    <div className="text-xs text-purple-600 font-medium">Anno 2</div>
+                    <div className="text-xs text-purple-600 font-medium">Anno 3</div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                </div>
+
+                {/* MARKETING */}
+                <details className="group" open>
+                  <summary className="p-4 cursor-pointer bg-white hover:bg-purple-50 border-b border-purple-200 flex items-center justify-between">
+                    <span className="font-medium text-purple-800 flex items-center gap-2">🎯 Marketing <ChevronRight size={16} className="group-open:rotate-90 transition-transform" /></span>
+                    <div className="flex gap-6 text-sm font-bold text-purple-700">
+                      <span>{fmtK(cacData.marketing?.totale?.[0])}</span>
+                      <span>{fmtK(cacData.marketing?.totale?.[1])}</span>
+                      <span>{fmtK(cacData.marketing?.totale?.[2])}</span>
+                    </div>
+                  </summary>
+                  <div className="p-4 bg-white border-b border-purple-200 space-y-3">
                     <WizardInputRow label="Google Ads" values={inputs.cacMkt_google} inputKey="cacMkt_google" unit="€" step={5000} compact />
                     <WizardInputRow label="LinkedIn Ads" values={inputs.cacMkt_linkedin} inputKey="cacMkt_linkedin" unit="€" step={5000} compact />
-                    <WizardInputRow label="Content/SEO" values={inputs.cacMkt_content} inputKey="cacMkt_content" unit="€" step={5000} compact />
+                    <WizardInputRow label="Meta Ads (FB/IG)" values={inputs.cacMkt_meta} inputKey="cacMkt_meta" unit="€" step={5000} compact />
+                    <WizardInputRow label="Content Marketing" values={inputs.cacMkt_content} inputKey="cacMkt_content" unit="€" step={5000} compact />
+                    <WizardInputRow label="SEO/SEM" values={inputs.cacMkt_seo} inputKey="cacMkt_seo" unit="€" step={5000} compact />
+                    <WizardInputRow label="PR & Media" values={inputs.cacMkt_pr} inputKey="cacMkt_pr" unit="€" step={5000} compact />
+                    <WizardInputRow label="Branding" values={inputs.cacMkt_brand} inputKey="cacMkt_brand" unit="€" step={5000} compact />
+                    <WizardInputRow label="Marketing Tools" values={inputs.cacMkt_tools} inputKey="cacMkt_tools" unit="€" step={5000} compact />
                   </div>
-                </div>
+                </details>
 
-                {/* Sales */}
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-purple-800">💼 Sales</span>
-                    <span className="text-sm font-bold text-purple-700">{fmtK(cacData.sales?.totale?.[0])} / {fmtK(cacData.sales?.totale?.[1])} / {fmtK(cacData.sales?.totale?.[2])}</span>
+                {/* SALES */}
+                <details className="group">
+                  <summary className="p-4 cursor-pointer bg-white hover:bg-purple-50 border-b border-purple-200 flex items-center justify-between">
+                    <span className="font-medium text-purple-800 flex items-center gap-2">💼 Sales <ChevronRight size={16} className="group-open:rotate-90 transition-transform" /></span>
+                    <div className="flex gap-6 text-sm font-bold text-purple-700">
+                      <span>{fmtK(cacData.sales?.totale?.[0])}</span>
+                      <span>{fmtK(cacData.sales?.totale?.[1])}</span>
+                      <span>{fmtK(cacData.sales?.totale?.[2])}</span>
+                    </div>
+                  </summary>
+                  <div className="p-4 bg-white border-b border-purple-200 space-y-3">
+                    <div className="text-xs font-medium text-gray-500 mb-2">PERSONALE SALES</div>
+                    <WizardInputRow label="Inside Sales (FTE)" values={inputs.cacSales_insideFTE} inputKey="cacSales_insideFTE" unit="FTE" step={0.5} compact />
+                    <WizardInputRow label="Inside Sales (RAL)" values={inputs.cacSales_insideRAL} inputKey="cacSales_insideRAL" unit="€" step={1000} compact />
+                    <WizardInputRow label="Field Sales (FTE)" values={inputs.cacSales_fieldFTE} inputKey="cacSales_fieldFTE" unit="FTE" step={0.5} compact />
+                    <WizardInputRow label="Field Sales (RAL)" values={inputs.cacSales_fieldRAL} inputKey="cacSales_fieldRAL" unit="€" step={1000} compact />
+                    <WizardInputRow label="Sales Manager (FTE)" values={inputs.cacSales_mgrFTE} inputKey="cacSales_mgrFTE" unit="FTE" step={0.5} compact />
+                    <WizardInputRow label="Sales Manager (RAL)" values={inputs.cacSales_mgrRAL} inputKey="cacSales_mgrRAL" unit="€" step={1000} compact />
+                    <div className="text-xs font-medium text-gray-500 mt-4 mb-2">ENABLEMENT</div>
+                    <WizardInputRow label="Sales Tools (CRM)" values={inputs.cacSales_tools} inputKey="cacSales_tools" unit="€" step={5000} compact />
+                    <WizardInputRow label="Demo / POC" values={inputs.cacSales_demo} inputKey="cacSales_demo" unit="€" step={5000} compact />
+                    <WizardInputRow label="Viaggi Sales" values={inputs.cacSales_viaggi} inputKey="cacSales_viaggi" unit="€" step={5000} compact />
+                    <WizardInputRow label="Formazione Sales" values={inputs.cacSales_training} inputKey="cacSales_training" unit="€" step={5000} compact />
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <WizardInputRow label="Inside Sales FTE" values={inputs.cacSales_insideFTE} inputKey="cacSales_insideFTE" unit="FTE" step={0.5} compact />
-                    <WizardInputRow label="Inside Sales RAL" values={inputs.cacSales_insideRAL} inputKey="cacSales_insideRAL" unit="€" step={1000} compact />
-                    <WizardInputRow label="Field Sales FTE" values={inputs.cacSales_fieldFTE} inputKey="cacSales_fieldFTE" unit="FTE" step={0.5} compact />
-                  </div>
-                </div>
+                </details>
 
-                {/* Eventi */}
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-purple-800">🎪 Eventi</span>
-                    <span className="text-sm font-bold text-purple-700">{fmtK(cacData.eventi?.totale?.[0])} / {fmtK(cacData.eventi?.totale?.[1])} / {fmtK(cacData.eventi?.totale?.[2])}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <WizardInputRow label="N. Fiere" values={inputs.cacEvt_fiereN} inputKey="cacEvt_fiereN" unit="n." step={1} compact />
-                    <WizardInputRow label="Costo Fiera" values={inputs.cacEvt_fiereCosto} inputKey="cacEvt_fiereCosto" unit="€" step={1000} compact />
+                {/* EVENTI */}
+                <details className="group">
+                  <summary className="p-4 cursor-pointer bg-white hover:bg-purple-50 border-b border-purple-200 flex items-center justify-between">
+                    <span className="font-medium text-purple-800 flex items-center gap-2">🎪 Eventi <ChevronRight size={16} className="group-open:rotate-90 transition-transform" /></span>
+                    <div className="flex gap-6 text-sm font-bold text-purple-700">
+                      <span>{fmtK(cacData.eventi?.totale?.[0])}</span>
+                      <span>{fmtK(cacData.eventi?.totale?.[1])}</span>
+                      <span>{fmtK(cacData.eventi?.totale?.[2])}</span>
+                    </div>
+                  </summary>
+                  <div className="p-4 bg-white border-b border-purple-200 space-y-3">
+                    <WizardInputRow label="N. Fiere/anno" values={inputs.cacEvt_fiereN} inputKey="cacEvt_fiereN" unit="n." step={1} compact />
+                    <WizardInputRow label="Costo medio Fiera" values={inputs.cacEvt_fiereCosto} inputKey="cacEvt_fiereCosto" unit="€" step={1000} compact />
+                    <WizardInputRow label="N. Conferenze" values={inputs.cacEvt_confN} inputKey="cacEvt_confN" unit="n." step={1} compact />
+                    <WizardInputRow label="Costo Conferenza" values={inputs.cacEvt_confCosto} inputKey="cacEvt_confCosto" unit="€" step={500} compact />
+                    <WizardInputRow label="N. Webinar" values={inputs.cacEvt_webinarN} inputKey="cacEvt_webinarN" unit="n." step={1} compact />
+                    <WizardInputRow label="N. Workshop" values={inputs.cacEvt_workshopN} inputKey="cacEvt_workshopN" unit="n." step={1} compact />
                     <WizardInputRow label="Sponsorship" values={inputs.cacEvt_sponsor} inputKey="cacEvt_sponsor" unit="€" step={5000} compact />
                   </div>
-                </div>
+                </details>
 
-                {/* Partner & Altro */}
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-purple-800">🤝 Partner & Altro</span>
-                    <span className="text-sm font-bold text-purple-700">{fmtK((cacData.partner?.totale?.[0] || 0) + (cacData.altro?.totale?.[0] || 0))} / {fmtK((cacData.partner?.totale?.[1] || 0) + (cacData.altro?.totale?.[1] || 0))} / {fmtK((cacData.partner?.totale?.[2] || 0) + (cacData.altro?.totale?.[2] || 0))}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
+                {/* PARTNER */}
+                <details className="group">
+                  <summary className="p-4 cursor-pointer bg-white hover:bg-purple-50 border-b border-purple-200 flex items-center justify-between">
+                    <span className="font-medium text-purple-800 flex items-center gap-2">🤝 Partner & Referral <ChevronRight size={16} className="group-open:rotate-90 transition-transform" /></span>
+                    <div className="flex gap-6 text-sm font-bold text-purple-700">
+                      <span>{fmtK(cacData.partner?.totale?.[0])}</span>
+                      <span>{fmtK(cacData.partner?.totale?.[1])}</span>
+                      <span>{fmtK(cacData.partner?.totale?.[2])}</span>
+                    </div>
+                  </summary>
+                  <div className="p-4 bg-white border-b border-purple-200 space-y-3">
                     <WizardInputRow label="Co-marketing" values={inputs.cacPtn_comkt} inputKey="cacPtn_comkt" unit="€" step={5000} compact />
-                    <WizardInputRow label="Consulenze" values={inputs.cacAlt_consulenze} inputKey="cacAlt_consulenze" unit="€" step={5000} compact />
-                    <WizardInputRow label="Materiali" values={inputs.cacAlt_materiali} inputKey="cacAlt_materiali" unit="€" step={1000} compact />
+                    <WizardInputRow label="% Clienti da Partner" values={inputs.cacPtn_vendPct.map(v => v * 100)} inputKey="cacPtn_vendPct" unit="%" step={5} compact />
+                    <WizardInputRow label="Comm. Partner %" values={inputs.cacPtn_commPct.map(v => v * 100)} inputKey="cacPtn_commPct" unit="%" step={1} compact />
+                    <WizardInputRow label="% Clienti da Referral" values={inputs.cacPtn_refRate.map(v => v * 100)} inputKey="cacPtn_refRate" unit="%" step={1} compact />
+                    <WizardInputRow label="Bonus Referral" values={inputs.cacPtn_refBonus} inputKey="cacPtn_refBonus" unit="€" step={50} compact />
                   </div>
-                </div>
+                </details>
+
+                {/* ALTRO */}
+                <details className="group">
+                  <summary className="p-4 cursor-pointer bg-white hover:bg-purple-50 border-b border-purple-200 flex items-center justify-between">
+                    <span className="font-medium text-purple-800 flex items-center gap-2">📦 Altro <ChevronRight size={16} className="group-open:rotate-90 transition-transform" /></span>
+                    <div className="flex gap-6 text-sm font-bold text-purple-700">
+                      <span>{fmtK((cacData.incentivi?.totale?.[0] || 0) + (cacData.altro?.totale?.[0] || 0))}</span>
+                      <span>{fmtK((cacData.incentivi?.totale?.[1] || 0) + (cacData.altro?.totale?.[1] || 0))}</span>
+                      <span>{fmtK((cacData.incentivi?.totale?.[2] || 0) + (cacData.altro?.totale?.[2] || 0))}</span>
+                    </div>
+                  </summary>
+                  <div className="p-4 bg-white border-b border-purple-200 space-y-3">
+                    <div className="text-xs font-medium text-gray-500 mb-2">INCENTIVI</div>
+                    <WizardInputRow label="Sconto 1° anno %" values={inputs.cacInc_scontoPct.map(v => v * 100)} inputKey="cacInc_scontoPct" unit="%" step={5} compact />
+                    <WizardInputRow label="% Clienti con Sconto" values={inputs.cacInc_scontoCli.map(v => v * 100)} inputKey="cacInc_scontoCli" unit="%" step={10} compact />
+                    <WizardInputRow label="Onboarding Gratuito" values={inputs.cacInc_onbFree} inputKey="cacInc_onbFree" unit="€" step={50} compact />
+                    <div className="text-xs font-medium text-gray-500 mt-4 mb-2">ALTRO</div>
+                    <WizardInputRow label="Consulenze Esterne" values={inputs.cacAlt_consulenze} inputKey="cacAlt_consulenze" unit="€" step={5000} compact />
+                    <WizardInputRow label="Materiali Vendita" values={inputs.cacAlt_materiali} inputKey="cacAlt_materiali" unit="€" step={1000} compact />
+                    <WizardInputRow label="Altro" values={inputs.cacAlt_altro} inputKey="cacAlt_altro" unit="€" step={5000} compact />
+                  </div>
+                </details>
 
                 {/* Bottom-Up Summary */}
-                <div className="mt-4 p-4 bg-white rounded-lg border border-purple-300">
-                  <div className="flex items-center justify-between mb-3">
-                    <strong className="text-purple-800">TOTALE COSTI ACQUISIZIONE (Bottom-Up)</strong>
-                  </div>
+                <div className="p-4 bg-purple-100">
                   <table className="w-full text-sm">
-                    <thead className="bg-purple-100">
-                      <tr>
-                        <th className="py-1 px-2 text-left text-purple-700">Categoria</th>
-                        <th className="py-1 px-2 text-center text-purple-700">A1</th>
-                        <th className="py-1 px-2 text-center text-purple-700">A2</th>
-                        <th className="py-1 px-2 text-center text-purple-700">A3</th>
-                        <th className="py-1 px-2 text-center text-purple-700">%</th>
+                    <thead>
+                      <tr className="border-b border-purple-300">
+                        <th className="py-2 px-2 text-left text-purple-800">Categoria</th>
+                        <th className="py-2 px-2 text-center text-purple-800">Anno 1</th>
+                        <th className="py-2 px-2 text-center text-purple-800">Anno 2</th>
+                        <th className="py-2 px-2 text-center text-purple-800">Anno 3</th>
+                        <th className="py-2 px-2 text-center text-purple-800">%</th>
                       </tr>
                     </thead>
                     <tbody>
                       {[
-                        { name: 'Marketing', data: cacData.marketing?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.marketing },
-                        { name: 'Sales', data: cacData.sales?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.sales },
-                        { name: 'Eventi', data: cacData.eventi?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.eventi },
-                        { name: 'Partner', data: cacData.partner?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.partner },
-                        { name: 'Incentivi', data: cacData.incentivi?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.incentivi },
-                        { name: 'Altro', data: cacData.altro?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.altro },
+                        { name: '🎯 Marketing', data: cacData.marketing?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.marketing },
+                        { name: '💼 Sales', data: cacData.sales?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.sales },
+                        { name: '🎪 Eventi', data: cacData.eventi?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.eventi },
+                        { name: '🤝 Partner', data: cacData.partner?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.partner },
+                        { name: '🎁 Incentivi', data: cacData.incentivi?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.incentivi },
+                        { name: '📦 Altro', data: cacData.altro?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.altro },
                       ].map(row => (
-                        <tr key={row.name} className="border-b">
-                          <td className="py-1 px-2 text-gray-700">{row.name}</td>
-                          <td className="py-1 px-2 text-center">{fmtK(row.data?.[0])}</td>
-                          <td className="py-1 px-2 text-center">{fmtK(row.data?.[1])}</td>
-                          <td className="py-1 px-2 text-center">{fmtK(row.data?.[2])}</td>
-                          <td className="py-1 px-2 text-center text-purple-600">{(row.pct || 0).toFixed(0)}%</td>
+                        <tr key={row.name} className="border-b border-purple-200">
+                          <td className="py-2 px-2 text-gray-700">{row.name}</td>
+                          <td className="py-2 px-2 text-center">{fmtK(row.data?.[0])}</td>
+                          <td className="py-2 px-2 text-center">{fmtK(row.data?.[1])}</td>
+                          <td className="py-2 px-2 text-center">{fmtK(row.data?.[2])}</td>
+                          <td className="py-2 px-2 text-center text-purple-600 font-medium">{(row.pct || 0).toFixed(0)}%</td>
                         </tr>
                       ))}
-                      <tr className="bg-purple-100 font-bold">
-                        <td className="py-2 px-2 text-purple-800">TOTALE</td>
-                        <td className="py-2 px-2 text-center text-purple-700">{fmtK(cacData.bottomUp?.costiTotali?.[0])}</td>
-                        <td className="py-2 px-2 text-center text-purple-700">{fmtK(cacData.bottomUp?.costiTotali?.[1])}</td>
-                        <td className="py-2 px-2 text-center text-purple-700">{fmtK(cacData.bottomUp?.costiTotali?.[2])}</td>
-                        <td className="py-2 px-2 text-center">100%</td>
+                      <tr className="bg-purple-200 font-bold">
+                        <td className="py-3 px-2 text-purple-800">TOTALE</td>
+                        <td className="py-3 px-2 text-center text-purple-800">{fmtK(cacData.bottomUp?.costiTotali?.[0])}</td>
+                        <td className="py-3 px-2 text-center text-purple-800">{fmtK(cacData.bottomUp?.costiTotali?.[1])}</td>
+                        <td className="py-3 px-2 text-center text-purple-800">{fmtK(cacData.bottomUp?.costiTotali?.[2])}</td>
+                        <td className="py-3 px-2 text-center">100%</td>
                       </tr>
                     </tbody>
                   </table>
-                  <div className="mt-3 pt-3 border-t border-purple-200">
-                    <div className="flex items-center justify-between text-lg">
+                  <div className="mt-4 p-3 bg-white rounded-lg border border-purple-300">
+                    <div className="flex items-center justify-between">
                       <span className="font-bold text-purple-800">CAC UNITARIO (Bottom-Up):</span>
-                      <div className="flex gap-4">
+                      <div className="flex gap-6">
                         {[0,1,2].map(y => (
-                          <span key={y} className="font-mono font-bold text-purple-700">A{y+1}: {fmt(cacData.bottomUp?.cacUnitario?.[y], 0)}€</span>
+                          <div key={y} className="text-center">
+                            <div className="text-xs text-gray-500">A{y+1}</div>
+                            <div className="font-bold text-lg text-purple-700">{fmt(cacData.bottomUp?.cacUnitario?.[y], 0)}€</div>
+                          </div>
                         ))}
                       </div>
                     </div>
