@@ -576,12 +576,13 @@ export default function NanoSatDashboard() {
     setInputModes(prev => ({ ...prev, [key]: mode }));
   };
 
-  // localStorage persistence
+  // localStorage persistence - merge con defaults per campi mancanti
   useEffect(() => {
     const saved = localStorage.getItem('nanosat-bp-inputs');
     if (saved) {
       try {
-        setInputs(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        setInputs(prev => ({ ...prev, ...parsed }));
       } catch (e) {}
     }
   }, []);
