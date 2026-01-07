@@ -33,7 +33,13 @@ const SCENARI = {
     // Funding
     seed: 300000,
     seriesA: 1000000,
-    grants: 300000
+    grants: 300000,
+    // Legacy (calcolati)
+    sensori: [2500, 10000, 35000],          // numClienti × sensoriPerCliente
+    satelliti: [2, 4, 8],                    // fase1_numPayload, fase2_satAnno2, fase2_satAnno3
+    costoSat: [60000, 60000, 60000],         // legacy
+    costoLancio: 30000,                      // legacy
+    cac: [32, 28, 22]                        // cacTopDown / 20
   },
   2: {
     name: 'MEDIUM',
@@ -63,7 +69,13 @@ const SCENARI = {
     // Funding
     seed: 500000,
     seriesA: 2000000,
-    grants: 650000
+    grants: 650000,
+    // Legacy (calcolati)
+    sensori: [5000, 25000, 100000],          // numClienti × sensoriPerCliente
+    satelliti: [3, 6, 12],                    // fase1_numPayload, fase2_satAnno2, fase2_satAnno3
+    costoSat: [60000, 60000, 60000],          // legacy
+    costoLancio: 30000,                       // legacy
+    cac: [25, 20, 15]                         // cacTopDown / 20
   },
   3: {
     name: 'BEST',
@@ -93,7 +105,13 @@ const SCENARI = {
     // Funding
     seed: 800000,
     seriesA: 3500000,
-    grants: 1000000
+    grants: 1000000,
+    // Legacy (calcolati)
+    sensori: [8000, 45000, 200000],          // numClienti × sensoriPerCliente
+    satelliti: [4, 10, 20],                   // fase1_numPayload, fase2_satAnno2, fase2_satAnno3
+    costoSat: [60000, 60000, 60000],          // legacy
+    costoLancio: 30000,                       // legacy
+    cac: [20, 15, 11]                         // cacTopDown / 20
   }
 };
 
@@ -447,6 +465,11 @@ export default function NanoSatDashboard() {
     salesBudget: [30000, 60000, 100000],
     cac: [25, 20, 15],
     cacYoY: -0.15,
+    sensori: [15000, 50000, 150000],              // Sensori target (legacy)
+    satelliti: [3, 6, 12],                        // Satelliti (legacy, calcolato da fasi)
+    costoSat: [60000, 60000, 60000],              // Costo produzione sat (legacy)
+    costoLancio: [30000, 30000, 30000],           // Costo lancio sat (legacy)
+    vitaSatellite: [5, 5, 5],                     // Vita utile sat (legacy)
 
     // === PERSONALE ===
     fte: [9, 17, 27],                      // FTE totali
@@ -522,7 +545,11 @@ export default function NanoSatDashboard() {
       // Funding
       seed: [s.seed, 0, 0],
       seriesA: [0, s.seriesA, 0],
-      grants: [s.grants * 0.3, s.grants * 0.4, s.grants * 0.3]
+      grants: [s.grants * 0.3, s.grants * 0.4, s.grants * 0.3],
+      // Legacy fields (calcolati)
+      sensori: s.numClienti.map((c, y) => c * s.sensoriPerCliente[y]),
+      satelliti: [s.fase1_numPayload, s.fase2_satAnno2, s.fase2_satAnno3],
+      cac: s.cacTopDown.map(c => Math.round(c / 20)) // CAC sensore approssimato
     }));
     setScenarioId(id);
   };
