@@ -24,9 +24,12 @@ const SCENARI = {
     // Team e costi
     fte: [6, 10, 16],
     ral: 48000,
-    cac: [35, 28, 22],
-    marketingBudget: [40000, 80000, 120000],
-    salesBudget: [25000, 50000, 80000],
+    // CAC Top-Down
+    cacTopDown: [650, 550, 450],
+    // CAC Bottom-Up defaults
+    cacBU_mktBudget: [80000, 140000, 200000],
+    cacBU_salesFTE: [1.5, 2.5, 4],
+    cacBU_evtBudget: [20000, 35000, 50000],
     // Funding
     seed: 300000,
     seriesA: 1000000,
@@ -51,9 +54,13 @@ const SCENARI = {
     // Team e costi
     fte: [9, 17, 27],
     ral: 50000,
-    cac: [25, 20, 15],
-    marketingBudget: [50000, 100000, 150000],
-    salesBudget: [30000, 60000, 100000],
+    // CAC Top-Down
+    cacTopDown: [500, 400, 300],
+    // CAC Bottom-Up defaults
+    cacBU_mktBudget: [120000, 200000, 300000],
+    cacBU_salesFTE: [2, 4, 6],
+    cacBU_evtBudget: [36000, 60000, 90000],
+    // Funding
     seed: 500000,
     seriesA: 2000000,
     grants: 650000
@@ -77,9 +84,13 @@ const SCENARI = {
     // Team e costi
     fte: [12, 25, 40],
     ral: 52000,
-    cac: [18, 14, 10],
-    marketingBudget: [80000, 150000, 250000],
-    salesBudget: [50000, 100000, 180000],
+    // CAC Top-Down
+    cacTopDown: [400, 300, 220],
+    // CAC Bottom-Up defaults
+    cacBU_mktBudget: [150000, 280000, 420000],
+    cacBU_salesFTE: [3, 5, 8],
+    cacBU_evtBudget: [50000, 85000, 130000],
+    // Funding
     seed: 800000,
     seriesA: 3500000,
     grants: 1000000
@@ -297,9 +308,15 @@ export default function NanoSatDashboard() {
     // Churn benchmark
     churnMercato: 0.03, // 3% mensile (media IoT B2B)
     churnTarget: 0.02, // 2% nostro target (-33%)
-    // CAC benchmark
-    cacMercato: 50, // €/cliente (media SaaS B2B)
-    cacTarget: 25, // nostro target (-50%)
+    // CAC benchmark per segmento
+    cacBenchmarks: [
+      { name: 'IoT Enterprise', min: 2000, max: 10000, note: 'Ciclo vendita lungo' },
+      { name: 'IoT SMB', min: 500, max: 2000, note: 'Mix inside + field' },
+      { name: 'IoT Self-service', min: 50, max: 200, note: 'Solo digital' },
+      { name: 'SaaS B2B media', min: 500, max: 1500, note: 'Benchmark generale' },
+      { name: 'SaaS B2B low-touch', min: 200, max: 500, note: 'Automazione alta' },
+    ],
+    cacTargetRange: { min: 300, max: 600, note: 'Mix SMB + self-serv.' },
     // Gross Margin benchmark
     grossMarginMercato: 0.60, // 60% (media SaaS)
     grossMarginTarget: 0.75, // 75% nostro target (+25%)
@@ -307,8 +324,16 @@ export default function NanoSatDashboard() {
     crescitaClientiTypical: 1.5, // +150% YoY early stage
     crescitaFteTypical: 0.5, // +50% YoY
     riduzioneChurnTypical: -0.10, // -10% YoY
-    riduzioneCacTypical: -0.15, // -15% YoY (efficienza)
+    riduzioneCacTypical: -0.20, // -15/-25% YoY (efficienza)
     riduzionePrezzoTypical: -0.10, // -10% YoY (competizione)
+    // CAC composition benchmark
+    cacMixTypical: {
+      marketing: 0.45, // 40-50% tipico
+      sales: 0.35, // 30-40% tipico
+      eventi: 0.12, // 10-15% tipico
+      partner: 0.05, // 3-8% tipico
+      altro: 0.03, // 2-5% tipico
+    }
   };
 
   // INPUTS - Struttura aggiornata v2
@@ -358,10 +383,70 @@ export default function NanoSatDashboard() {
     fase2_inclAssicurazione: false,        // Assicurazione satellite inclusa
 
     // === COSTI ACQUISIZIONE (CAC) ===
-    marketingBudget: [50000, 100000, 150000],  // Budget marketing annuo
-    salesBudget: [30000, 60000, 100000],       // Budget vendite annuo
-    cac: [25, 20, 15],                         // CAC unitario (€/cliente) - override o calcolato
-    cacYoY: -0.15,                             // -15% YoY (efficienza)
+    cacModalita: 'topdown', // 'topdown' | 'bottomup' | 'entrambi'
+
+    // --- TOP-DOWN ---
+    cacTopDown: [500, 400, 300],              // CAC target per cliente
+    cacTopDownYoY: -0.20,                     // Riduzione YoY
+
+    // --- BOTTOM-UP: MARKETING ---
+    cacMkt_google: [30000, 60000, 100000],      // Google Ads
+    cacMkt_linkedin: [20000, 40000, 70000],     // LinkedIn Ads
+    cacMkt_meta: [10000, 20000, 30000],         // Meta Ads
+    cacMkt_altriAds: [5000, 15000, 25000],      // Altri Ads
+    cacMkt_content: [15000, 25000, 40000],      // Content Marketing
+    cacMkt_seo: [10000, 15000, 20000],          // SEO/SEM
+    cacMkt_pr: [10000, 20000, 35000],           // PR & Media
+    cacMkt_brand: [15000, 10000, 15000],        // Branding
+    cacMkt_tools: [5000, 10000, 15000],         // Marketing Tools
+
+    // --- BOTTOM-UP: SALES ---
+    cacSales_insideFTE: [1, 2, 3],              // Inside Sales FTE
+    cacSales_insideRAL: [35000, 38000, 40000],  // Inside Sales RAL
+    cacSales_fieldFTE: [0.5, 1, 2],             // Field Sales FTE
+    cacSales_fieldRAL: [50000, 55000, 60000],   // Field Sales RAL
+    cacSales_mgrFTE: [0.5, 1, 1],               // Sales Manager FTE
+    cacSales_mgrRAL: [65000, 70000, 75000],     // Sales Manager RAL
+    cacSales_commPct: 0.10,                     // Commissioni % su nuovo ARR
+    cacSales_tools: [5000, 12000, 20000],       // Sales Tools (CRM, etc.)
+    cacSales_demo: [10000, 25000, 40000],       // Demo/POC
+    cacSales_viaggi: [15000, 35000, 60000],     // Viaggi Sales
+    cacSales_training: [5000, 10000, 15000],    // Formazione Sales
+
+    // --- BOTTOM-UP: EVENTI ---
+    cacEvt_fiereN: [2, 4, 6],                   // Numero fiere/anno
+    cacEvt_fiereCosto: [8000, 10000, 12000],    // Costo medio fiera
+    cacEvt_confN: [3, 5, 8],                    // Numero conferenze
+    cacEvt_confCosto: [2000, 2500, 3000],       // Costo medio conferenza
+    cacEvt_webinarN: [6, 12, 18],               // Webinar organizzati
+    cacEvt_webinarCosto: [500, 500, 500],       // Costo medio webinar
+    cacEvt_workshopN: [2, 4, 6],                // Workshop/demo day
+    cacEvt_workshopCosto: [3000, 3500, 4000],   // Costo medio workshop
+    cacEvt_sponsor: [5000, 15000, 30000],       // Sponsorship
+
+    // --- BOTTOM-UP: PARTNER ---
+    cacPtn_commPct: [0.15, 0.15, 0.12],         // Commissioni Partner %
+    cacPtn_vendPct: [0.10, 0.20, 0.30],         // % clienti da partner
+    cacPtn_comkt: [5000, 15000, 25000],         // Co-marketing
+    cacPtn_refBonus: [100, 150, 200],           // Referral Bonus €
+    cacPtn_refRate: [0.05, 0.10, 0.15],         // % clienti da referral
+
+    // --- BOTTOM-UP: INCENTIVI ---
+    cacInc_scontoPct: [0.20, 0.15, 0.10],       // Sconto primo anno %
+    cacInc_scontoCli: [0.50, 0.40, 0.30],       // % clienti con sconto
+    cacInc_onbFree: [200, 150, 100],            // Onboarding gratuito €/cliente
+    cacInc_onbFreePct: [1.0, 0.8, 0.5],         // % clienti con onb free
+
+    // --- BOTTOM-UP: ALTRO ---
+    cacAlt_consulenze: [10000, 15000, 20000],   // Consulenze esterne
+    cacAlt_materiali: [5000, 8000, 12000],      // Materiali vendita
+    cacAlt_altro: [5000, 10000, 15000],         // Varie
+
+    // Legacy (per retrocompatibilità)
+    marketingBudget: [50000, 100000, 150000],
+    salesBudget: [30000, 60000, 100000],
+    cac: [25, 20, 15],
+    cacYoY: -0.15,
 
     // === PERSONALE ===
     fte: [9, 17, 27],                      // FTE totali
@@ -429,12 +514,11 @@ export default function NanoSatDashboard() {
       fase2_satAnno3: s.fase2_satAnno3,
       fase2_canoneSat: s.fase2_canoneSat,
       fase2_capacitaSat: s.fase2_capacitaSat,
-      // Team e costi
+      // Team
       fte: [...s.fte],
       ral: [s.ral, s.ral, s.ral],
-      cac: [...s.cac],
-      marketingBudget: [...s.marketingBudget],
-      salesBudget: [...s.salesBudget],
+      // CAC Top-Down
+      cacTopDown: [...s.cacTopDown],
       // Funding
       seed: [s.seed, 0, 0],
       seriesA: [0, s.seriesA, 0],
@@ -646,13 +730,197 @@ export default function NanoSatDashboard() {
       affittoAnnuo[y] + groundAnnuo[y] + cloudAnnuo[y] + altriOpex[y]
     );
 
-    // CAC totale (calcolato o da budget)
-    const cacCalcolato = clientiNuovi.map((c, y) =>
-      c > 0 ? (i.marketingBudget[y] + i.salesBudget[y]) / c : 0
+    // ═══════════════════════════════════════════════════════════════
+    // CAC - CUSTOMER ACQUISITION COST (Top-Down + Bottom-Up)
+    // ═══════════════════════════════════════════════════════════════
+    const welfare = i.welfare[0] || 0.15;
+
+    // --- CAC TOP-DOWN ---
+    const cacTopDown = {
+      valori: [...i.cacTopDown],
+      costoTotale: i.cacTopDown.map((cac, y) => cac * clientiNuovi[y])
+    };
+
+    // --- CAC BOTTOM-UP: MARKETING ---
+    const cacMarketing = {
+      google: [...i.cacMkt_google],
+      linkedin: [...i.cacMkt_linkedin],
+      meta: [...i.cacMkt_meta],
+      altriAds: [...i.cacMkt_altriAds],
+      content: [...i.cacMkt_content],
+      seo: [...i.cacMkt_seo],
+      pr: [...i.cacMkt_pr],
+      brand: [...i.cacMkt_brand],
+      tools: [...i.cacMkt_tools],
+    };
+    cacMarketing.totale = [0, 1, 2].map(y =>
+      cacMarketing.google[y] + cacMarketing.linkedin[y] + cacMarketing.meta[y] +
+      cacMarketing.altriAds[y] + cacMarketing.content[y] + cacMarketing.seo[y] +
+      cacMarketing.pr[y] + cacMarketing.brand[y] + cacMarketing.tools[y]
     );
-    const cacUnitario = i.cac; // può essere override
-    const cacTotale = clientiNuovi.map((c, y) => c * cacUnitario[y]);
-    const marketingSalesBudget = [0, 1, 2].map(y => i.marketingBudget[y] + i.salesBudget[y]);
+
+    // --- CAC BOTTOM-UP: SALES ---
+    const cacSales = {
+      insideFTE: [...i.cacSales_insideFTE],
+      insideRAL: [...i.cacSales_insideRAL],
+      fieldFTE: [...i.cacSales_fieldFTE],
+      fieldRAL: [...i.cacSales_fieldRAL],
+      mgrFTE: [...i.cacSales_mgrFTE],
+      mgrRAL: [...i.cacSales_mgrRAL],
+      commPct: i.cacSales_commPct,
+      tools: [...i.cacSales_tools],
+      demo: [...i.cacSales_demo],
+      viaggi: [...i.cacSales_viaggi],
+      training: [...i.cacSales_training],
+    };
+    cacSales.costoPersonale = [0, 1, 2].map(y =>
+      (cacSales.insideFTE[y] * cacSales.insideRAL[y] * (1 + welfare) * 1.4) +
+      (cacSales.fieldFTE[y] * cacSales.fieldRAL[y] * (1 + welfare) * 1.4) +
+      (cacSales.mgrFTE[y] * cacSales.mgrRAL[y] * (1 + welfare) * 1.4)
+    );
+    // Nuovo ARR approssimato per commissioni
+    const nuovoARR = clientiNuovi.map((c, y) => c * sensoriPerCliente[y] * i.prezzo[y] * 12);
+    cacSales.commissioni = nuovoARR.map(arr => arr * cacSales.commPct);
+    cacSales.totale = [0, 1, 2].map(y =>
+      cacSales.costoPersonale[y] + cacSales.commissioni[y] +
+      cacSales.tools[y] + cacSales.demo[y] + cacSales.viaggi[y] + cacSales.training[y]
+    );
+
+    // --- CAC BOTTOM-UP: EVENTI ---
+    const cacEventi = {
+      fiereN: [...i.cacEvt_fiereN],
+      fiereCosto: [...i.cacEvt_fiereCosto],
+      confN: [...i.cacEvt_confN],
+      confCosto: [...i.cacEvt_confCosto],
+      webinarN: [...i.cacEvt_webinarN],
+      webinarCosto: [...i.cacEvt_webinarCosto],
+      workshopN: [...i.cacEvt_workshopN],
+      workshopCosto: [...i.cacEvt_workshopCosto],
+      sponsor: [...i.cacEvt_sponsor],
+    };
+    cacEventi.totale = [0, 1, 2].map(y =>
+      (cacEventi.fiereN[y] * cacEventi.fiereCosto[y]) +
+      (cacEventi.confN[y] * cacEventi.confCosto[y]) +
+      (cacEventi.webinarN[y] * cacEventi.webinarCosto[y]) +
+      (cacEventi.workshopN[y] * cacEventi.workshopCosto[y]) +
+      cacEventi.sponsor[y]
+    );
+
+    // --- CAC BOTTOM-UP: PARTNER ---
+    const cacPartner = {
+      commPct: [...i.cacPtn_commPct],
+      vendPct: [...i.cacPtn_vendPct],
+      comkt: [...i.cacPtn_comkt],
+      refBonus: [...i.cacPtn_refBonus],
+      refRate: [...i.cacPtn_refRate],
+    };
+    cacPartner.commissioni = [0, 1, 2].map(y =>
+      nuovoARR[y] * cacPartner.vendPct[y] * cacPartner.commPct[y]
+    );
+    cacPartner.referral = [0, 1, 2].map(y =>
+      clientiNuovi[y] * cacPartner.refRate[y] * cacPartner.refBonus[y]
+    );
+    cacPartner.totale = [0, 1, 2].map(y =>
+      cacPartner.commissioni[y] + cacPartner.referral[y] + cacPartner.comkt[y]
+    );
+
+    // --- CAC BOTTOM-UP: INCENTIVI ---
+    const cacIncentivi = {
+      scontoPct: [...i.cacInc_scontoPct],
+      scontoCli: [...i.cacInc_scontoCli],
+      onbFree: [...i.cacInc_onbFree],
+      onbFreePct: [...i.cacInc_onbFreePct],
+    };
+    cacIncentivi.costoSconti = [0, 1, 2].map(y =>
+      nuovoARR[y] * cacIncentivi.scontoCli[y] * cacIncentivi.scontoPct[y]
+    );
+    cacIncentivi.costoOnb = [0, 1, 2].map(y =>
+      clientiNuovi[y] * cacIncentivi.onbFreePct[y] * cacIncentivi.onbFree[y]
+    );
+    cacIncentivi.totale = [0, 1, 2].map(y =>
+      cacIncentivi.costoSconti[y] + cacIncentivi.costoOnb[y]
+    );
+
+    // --- CAC BOTTOM-UP: ALTRO ---
+    const cacAltro = {
+      consulenze: [...i.cacAlt_consulenze],
+      materiali: [...i.cacAlt_materiali],
+      altro: [...i.cacAlt_altro],
+    };
+    cacAltro.totale = [0, 1, 2].map(y =>
+      cacAltro.consulenze[y] + cacAltro.materiali[y] + cacAltro.altro[y]
+    );
+
+    // --- CAC BOTTOM-UP: AGGREGAZIONE ---
+    const cacBottomUp = {
+      costiTotali: [0, 1, 2].map(y =>
+        cacMarketing.totale[y] + cacSales.totale[y] + cacEventi.totale[y] +
+        cacPartner.totale[y] + cacIncentivi.totale[y] + cacAltro.totale[y]
+      ),
+    };
+    cacBottomUp.cacUnitario = cacBottomUp.costiTotali.map((costo, y) =>
+      clientiNuovi[y] > 0 ? costo / clientiNuovi[y] : 0
+    );
+    // Breakdown percentuale
+    cacBottomUp.breakdown = [0, 1, 2].map(y => {
+      const tot = cacBottomUp.costiTotali[y] || 1;
+      return {
+        marketing: (cacMarketing.totale[y] / tot) * 100,
+        sales: (cacSales.totale[y] / tot) * 100,
+        eventi: (cacEventi.totale[y] / tot) * 100,
+        partner: (cacPartner.totale[y] / tot) * 100,
+        incentivi: (cacIncentivi.totale[y] / tot) * 100,
+        altro: (cacAltro.totale[y] / tot) * 100,
+      };
+    });
+
+    // --- CONFRONTO TOP-DOWN vs BOTTOM-UP ---
+    const cacConfronto = {
+      delta: [0, 1, 2].map(y => cacBottomUp.cacUnitario[y] - cacTopDown.valori[y]),
+      deltaPct: [0, 1, 2].map(y => {
+        const td = cacTopDown.valori[y];
+        return td > 0 ? ((cacBottomUp.cacUnitario[y] - td) / td) * 100 : 0;
+      }),
+      warning: [0, 1, 2].map(y => {
+        const td = cacTopDown.valori[y];
+        return td > 0 && Math.abs((cacBottomUp.cacUnitario[y] - td) / td) > 0.20;
+      }),
+      stato: [0, 1, 2].map(y => {
+        const td = cacTopDown.valori[y];
+        const pct = td > 0 ? Math.abs((cacBottomUp.cacUnitario[y] - td) / td) : 0;
+        if (pct <= 0.10) return 'green';
+        if (pct <= 0.20) return 'yellow';
+        return 'red';
+      })
+    };
+
+    // --- CAC FINALE (dipende da modalità) ---
+    const cacModalita = i.cacModalita || 'topdown';
+    const cacFinale = cacModalita === 'topdown' ? cacTopDown.valori : cacBottomUp.cacUnitario;
+    const cacCostiFinale = cacModalita === 'topdown' ? cacTopDown.costoTotale : cacBottomUp.costiTotali;
+
+    // CAC (aggregato per export)
+    const cacCalc = {
+      modalita: cacModalita,
+      topDown: cacTopDown,
+      bottomUp: cacBottomUp,
+      marketing: cacMarketing,
+      sales: cacSales,
+      eventi: cacEventi,
+      partner: cacPartner,
+      incentivi: cacIncentivi,
+      altro: cacAltro,
+      confronto: cacConfronto,
+      finale: cacFinale,
+      costiFinale: cacCostiFinale,
+      nuovoARR
+    };
+
+    // Legacy (retrocompatibilità)
+    const cacCalcolato = cacBottomUp.cacUnitario;
+    const cacUnitario = cacFinale;
+    const cacTotale = cacCostiFinale;
+    const marketingSalesBudget = cacBottomUp.costiTotali;
 
     // ═══════════════════════════════════════════════════════════════
     // 6. CAPEX E AMMORTAMENTI (MODELLO SPACE-AS-A-SERVICE)
@@ -825,7 +1093,8 @@ export default function NanoSatDashboard() {
       ricaviSub, ricaviPremium, ricaviHardware, ricaviTotali, crescitaYoY,
       // Costi operativi
       costoPersonale, affittoAnnuo, groundAnnuo, cloudAnnuo, altriOpex, opexTotale,
-      cacCalcolato, cacUnitario, cacTotale, marketingSalesBudget,
+      // CAC completo
+      cacCalc, cacCalcolato, cacUnitario, cacTotale, marketingSalesBudget,
       // CAPEX
       capexSatelliti, capexAttrezzature, capexTotale, ammSatellitiAnno, ammAttrezzAnno, ammTotaleAnno, ammInfraAnno,
       // Conto Economico
@@ -2028,7 +2297,7 @@ export default function NanoSatDashboard() {
     { id: 2, title: 'Clienti e Domanda', subtitle: 'Clienti, sensori, churn' },
     { id: 3, title: 'Ricavi e Pricing', subtitle: 'Canoni e ARPU' },
     { id: 4, title: 'Infrastruttura', subtitle: 'Hosted Payload + SaaS' },
-    { id: 5, title: 'Costi', subtitle: 'Team, OPEX, CAC' },
+    { id: 5, title: 'Acquisizione (CAC)', subtitle: 'Top-Down vs Bottom-Up' },
     { id: 6, title: 'Finanziamenti', subtitle: 'Fonti di funding' }
   ];
 
@@ -2810,106 +3079,263 @@ export default function NanoSatDashboard() {
           </div>
         );
 
-      // STEP 5: COSTI
+      // STEP 5: COSTI E CAC
       case 5:
+        const cacData = calc.cacCalc || {};
+        const cacMod = inputs.cacModalita || 'topdown';
+
         return (
           <div className="fade-in">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Struttura Costi</h2>
-            <p className="text-gray-600 mb-6">Definisci team e costi di acquisizione. Usa YoY per proiezioni automatiche.</p>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Costi Acquisizione Clienti (CAC)</h2>
+            <p className="text-gray-600 mb-6">Quanto costa acquisire un nuovo cliente? Scegli la modalita di calcolo.</p>
 
-            {/* Team */}
-            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-6 mb-6 border border-blue-200">
-              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">👨‍💼 Team</h3>
-
-              <WizardInputWithMode
-                label="FTE Totali"
-                inputKey="fte"
-                yoyKey="crescitaFteYoY"
-                unit="persone"
-                step={1}
-                modes={['direct', 'yoy']}
-                help="Dipendenti full-time equivalent. Crescita tipica startup: +50-80% YoY."
-              />
-
-              <WizardInputWithMode
-                label="RAL Media"
-                inputKey="ral"
-                yoyKey="ralYoY"
-                unit="€/anno"
-                step={1000}
-                modes={['direct', 'yoy']}
-                help="Retribuzione annua lorda media. Adeguamento tipico: +3-5% YoY."
-              />
-
-              <WizardInputRow label="Welfare %" values={inputs.welfare.map(v => v * 100)} inputKey="welfare" unit="%" step={1} help="Benefits aggiuntivi (buoni pasto, assicurazione, etc.)." />
-
-              <div className="mt-2 p-3 bg-white rounded-lg border border-blue-200 text-sm">
-                <strong className="text-blue-800">Costo personale stimato (RAL × 1.4 + welfare):</strong>
-                <div className="flex gap-4 mt-1">
-                  {[0,1,2].map(y => (
-                    <span key={y} className="font-mono">A{y+1}: <strong className="text-blue-700">{fmtK(calc.costoPersonale[y])}</strong></span>
-                  ))}
-                </div>
+            {/* Mode Selector */}
+            <div className="mb-6 p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-200">
+              <div className="text-sm font-medium text-gray-700 mb-3">Scegli come calcolare il CAC:</div>
+              <div className="flex gap-3">
+                {[
+                  { id: 'topdown', label: 'TOP-DOWN', desc: 'Inserisco il CAC target' },
+                  { id: 'bottomup', label: 'BOTTOM-UP', desc: 'Dettaglio tutti i costi' },
+                  { id: 'entrambi', label: 'ENTRAMBI', desc: 'Confronto target vs budget' }
+                ].map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => updateInput('cacModalita', 0, m.id)}
+                    className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                      cacMod === m.id ? 'border-orange-500 bg-orange-100' : 'border-gray-200 bg-white hover:border-orange-300'
+                    }`}
+                  >
+                    <div className={`font-bold text-sm ${cacMod === m.id ? 'text-orange-700' : 'text-gray-600'}`}>{m.label}</div>
+                    <div className="text-xs text-gray-500">{m.desc}</div>
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* CAC */}
-            <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl p-6 mb-6 border border-orange-200">
-              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">📢 Acquisizione Clienti (CAC)</h3>
-
-              {/* Benchmark CAC */}
-              <div className="mb-4 p-3 bg-white rounded-lg border border-orange-200">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Benchmark CAC mercato SaaS B2B:</span>
-                  <span className="font-bold text-orange-700">{BENCHMARK.cacMercato}€/cliente</span>
-                </div>
-                <div className="flex items-center justify-between text-sm mt-1">
-                  <span className="text-gray-600">Nostro target:</span>
-                  <span className="font-bold text-green-700">{BENCHMARK.cacTarget}€/cliente (-50%)</span>
-                </div>
+            {/* Benchmark Reference */}
+            <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+              <div className="text-sm font-medium text-blue-800 mb-2">Benchmark CAC Settore IoT / SaaS B2B</div>
+              <div className="grid grid-cols-3 gap-3 text-xs">
+                {BENCHMARK.cacBenchmarks?.slice(0, 3).map(b => (
+                  <div key={b.name} className="bg-white p-2 rounded border">
+                    <div className="font-medium text-gray-700">{b.name}</div>
+                    <div className="text-blue-700 font-bold">{b.min}-{b.max}€</div>
+                    <div className="text-gray-500">{b.note}</div>
+                  </div>
+                ))}
               </div>
-
-              <WizardInputWithMode
-                label="CAC Unitario"
-                inputKey="cac"
-                yoyKey="cacYoY"
-                benchmarkKey="cacBenchmarkSconto"
-                benchmarkValue={BENCHMARK.cacMercato}
-                unit="€/cliente"
-                step={1}
-                modes={['direct', 'yoy', 'benchmark']}
-                help="Costo acquisizione cliente. Dovrebbe scendere nel tempo grazie all'efficienza. YoY tipico: -10/-20%."
-              />
-
-              <div className="grid grid-cols-2 gap-4">
-                <WizardInputRow label="Budget Marketing" values={inputs.marketingBudget} inputKey="marketingBudget" unit="€/anno" step={5000} help="Spesa annua in marketing." />
-                <WizardInputRow label="Budget Sales" values={inputs.salesBudget} inputKey="salesBudget" unit="€/anno" step={5000} help="Spesa annua in vendite." />
-              </div>
-
-              <div className="mt-2 p-3 bg-white rounded-lg border border-orange-200 text-sm">
-                <strong className="text-orange-800">CAC calcolato da budget:</strong>
-                <div className="flex gap-4 mt-1">
-                  {[0,1,2].map(y => (
-                    <span key={y} className="font-mono">A{y+1}: <strong className="text-orange-700">{fmt(calc.cacCalcolato[y], 0)}€</strong></span>
-                  ))}
-                </div>
+              <div className="mt-3 p-2 bg-green-100 rounded text-sm">
+                <span className="font-medium text-green-800">Target NanoSat IoT: </span>
+                <span className="font-bold text-green-700">{BENCHMARK.cacTargetRange?.min}-{BENCHMARK.cacTargetRange?.max}€/cliente</span>
+                <span className="text-green-600 ml-2">({BENCHMARK.cacTargetRange?.note})</span>
               </div>
             </div>
+
+            {/* TOP-DOWN Section */}
+            {(cacMod === 'topdown' || cacMod === 'entrambi') && (
+              <div className="mb-6 p-6 bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl border border-orange-200">
+                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <Target size={18} className="text-orange-600" /> CAC TOP-DOWN (Target)
+                </h3>
+                <WizardInputWithMode
+                  label="CAC Target per Cliente"
+                  inputKey="cacTopDown"
+                  yoyKey="cacTopDownYoY"
+                  unit="€/cliente"
+                  step={10}
+                  modes={['direct', 'yoy']}
+                  help="CAC obiettivo. Riduzione tipica: -15/-25% YoY grazie all'efficienza."
+                />
+                <div className="mt-3 p-3 bg-white rounded-lg border border-orange-200 text-sm">
+                  <strong className="text-orange-800">Costo Totale Acquisizione (Top-Down):</strong>
+                  <div className="flex gap-4 mt-1">
+                    {[0,1,2].map(y => (
+                      <span key={y} className="font-mono">A{y+1}: <strong className="text-orange-700">{fmtK(cacData.topDown?.costoTotale?.[y])}</strong></span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* BOTTOM-UP Section */}
+            {(cacMod === 'bottomup' || cacMod === 'entrambi') && (
+              <div className="mb-6 p-6 bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl border border-purple-200">
+                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <Sliders size={18} className="text-purple-600" /> CAC BOTTOM-UP (Dettaglio)
+                </h3>
+
+                {/* Marketing */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-purple-800">🎯 Marketing</span>
+                    <span className="text-sm font-bold text-purple-700">{fmtK(cacData.marketing?.totale?.[0])} / {fmtK(cacData.marketing?.totale?.[1])} / {fmtK(cacData.marketing?.totale?.[2])}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <WizardInputRow label="Google Ads" values={inputs.cacMkt_google} inputKey="cacMkt_google" unit="€" step={5000} compact />
+                    <WizardInputRow label="LinkedIn Ads" values={inputs.cacMkt_linkedin} inputKey="cacMkt_linkedin" unit="€" step={5000} compact />
+                    <WizardInputRow label="Content/SEO" values={inputs.cacMkt_content} inputKey="cacMkt_content" unit="€" step={5000} compact />
+                  </div>
+                </div>
+
+                {/* Sales */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-purple-800">💼 Sales</span>
+                    <span className="text-sm font-bold text-purple-700">{fmtK(cacData.sales?.totale?.[0])} / {fmtK(cacData.sales?.totale?.[1])} / {fmtK(cacData.sales?.totale?.[2])}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <WizardInputRow label="Inside Sales FTE" values={inputs.cacSales_insideFTE} inputKey="cacSales_insideFTE" unit="FTE" step={0.5} compact />
+                    <WizardInputRow label="Inside Sales RAL" values={inputs.cacSales_insideRAL} inputKey="cacSales_insideRAL" unit="€" step={1000} compact />
+                    <WizardInputRow label="Field Sales FTE" values={inputs.cacSales_fieldFTE} inputKey="cacSales_fieldFTE" unit="FTE" step={0.5} compact />
+                  </div>
+                </div>
+
+                {/* Eventi */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-purple-800">🎪 Eventi</span>
+                    <span className="text-sm font-bold text-purple-700">{fmtK(cacData.eventi?.totale?.[0])} / {fmtK(cacData.eventi?.totale?.[1])} / {fmtK(cacData.eventi?.totale?.[2])}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <WizardInputRow label="N. Fiere" values={inputs.cacEvt_fiereN} inputKey="cacEvt_fiereN" unit="n." step={1} compact />
+                    <WizardInputRow label="Costo Fiera" values={inputs.cacEvt_fiereCosto} inputKey="cacEvt_fiereCosto" unit="€" step={1000} compact />
+                    <WizardInputRow label="Sponsorship" values={inputs.cacEvt_sponsor} inputKey="cacEvt_sponsor" unit="€" step={5000} compact />
+                  </div>
+                </div>
+
+                {/* Partner & Altro */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-purple-800">🤝 Partner & Altro</span>
+                    <span className="text-sm font-bold text-purple-700">{fmtK((cacData.partner?.totale?.[0] || 0) + (cacData.altro?.totale?.[0] || 0))} / {fmtK((cacData.partner?.totale?.[1] || 0) + (cacData.altro?.totale?.[1] || 0))} / {fmtK((cacData.partner?.totale?.[2] || 0) + (cacData.altro?.totale?.[2] || 0))}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <WizardInputRow label="Co-marketing" values={inputs.cacPtn_comkt} inputKey="cacPtn_comkt" unit="€" step={5000} compact />
+                    <WizardInputRow label="Consulenze" values={inputs.cacAlt_consulenze} inputKey="cacAlt_consulenze" unit="€" step={5000} compact />
+                    <WizardInputRow label="Materiali" values={inputs.cacAlt_materiali} inputKey="cacAlt_materiali" unit="€" step={1000} compact />
+                  </div>
+                </div>
+
+                {/* Bottom-Up Summary */}
+                <div className="mt-4 p-4 bg-white rounded-lg border border-purple-300">
+                  <div className="flex items-center justify-between mb-3">
+                    <strong className="text-purple-800">TOTALE COSTI ACQUISIZIONE (Bottom-Up)</strong>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead className="bg-purple-100">
+                      <tr>
+                        <th className="py-1 px-2 text-left text-purple-700">Categoria</th>
+                        <th className="py-1 px-2 text-center text-purple-700">A1</th>
+                        <th className="py-1 px-2 text-center text-purple-700">A2</th>
+                        <th className="py-1 px-2 text-center text-purple-700">A3</th>
+                        <th className="py-1 px-2 text-center text-purple-700">%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { name: 'Marketing', data: cacData.marketing?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.marketing },
+                        { name: 'Sales', data: cacData.sales?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.sales },
+                        { name: 'Eventi', data: cacData.eventi?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.eventi },
+                        { name: 'Partner', data: cacData.partner?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.partner },
+                        { name: 'Incentivi', data: cacData.incentivi?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.incentivi },
+                        { name: 'Altro', data: cacData.altro?.totale, pct: cacData.bottomUp?.breakdown?.[0]?.altro },
+                      ].map(row => (
+                        <tr key={row.name} className="border-b">
+                          <td className="py-1 px-2 text-gray-700">{row.name}</td>
+                          <td className="py-1 px-2 text-center">{fmtK(row.data?.[0])}</td>
+                          <td className="py-1 px-2 text-center">{fmtK(row.data?.[1])}</td>
+                          <td className="py-1 px-2 text-center">{fmtK(row.data?.[2])}</td>
+                          <td className="py-1 px-2 text-center text-purple-600">{(row.pct || 0).toFixed(0)}%</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-purple-100 font-bold">
+                        <td className="py-2 px-2 text-purple-800">TOTALE</td>
+                        <td className="py-2 px-2 text-center text-purple-700">{fmtK(cacData.bottomUp?.costiTotali?.[0])}</td>
+                        <td className="py-2 px-2 text-center text-purple-700">{fmtK(cacData.bottomUp?.costiTotali?.[1])}</td>
+                        <td className="py-2 px-2 text-center text-purple-700">{fmtK(cacData.bottomUp?.costiTotali?.[2])}</td>
+                        <td className="py-2 px-2 text-center">100%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div className="mt-3 pt-3 border-t border-purple-200">
+                    <div className="flex items-center justify-between text-lg">
+                      <span className="font-bold text-purple-800">CAC UNITARIO (Bottom-Up):</span>
+                      <div className="flex gap-4">
+                        {[0,1,2].map(y => (
+                          <span key={y} className="font-mono font-bold text-purple-700">A{y+1}: {fmt(cacData.bottomUp?.cacUnitario?.[y], 0)}€</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Confronto Top-Down vs Bottom-Up */}
+            {cacMod === 'entrambi' && (
+              <div className="mb-6 p-4 bg-gray-100 rounded-xl border border-gray-300">
+                <h3 className="font-bold text-gray-800 mb-4">📊 Confronto Top-Down vs Bottom-Up</h3>
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-200">
+                    <tr>
+                      <th className="py-2 px-3 text-left">Metodo</th>
+                      <th className="py-2 px-3 text-center">Anno 1</th>
+                      <th className="py-2 px-3 text-center">Anno 2</th>
+                      <th className="py-2 px-3 text-center">Anno 3</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b">
+                      <td className="py-2 px-3 font-medium text-orange-700">TOP-DOWN (Target)</td>
+                      {[0,1,2].map(y => <td key={y} className="py-2 px-3 text-center font-bold">{fmt(cacData.topDown?.valori?.[y], 0)}€</td>)}
+                    </tr>
+                    <tr className="border-b">
+                      <td className="py-2 px-3 font-medium text-purple-700">BOTTOM-UP (Budget)</td>
+                      {[0,1,2].map(y => <td key={y} className="py-2 px-3 text-center font-bold">{fmt(cacData.bottomUp?.cacUnitario?.[y], 0)}€</td>)}
+                    </tr>
+                    <tr className="bg-gray-50">
+                      <td className="py-2 px-3 font-medium text-gray-600">DELTA</td>
+                      {[0,1,2].map(y => {
+                        const delta = cacData.confronto?.delta?.[y] || 0;
+                        const pct = cacData.confronto?.deltaPct?.[y] || 0;
+                        const stato = cacData.confronto?.stato?.[y] || 'green';
+                        const colors = { green: 'text-green-600', yellow: 'text-yellow-600', red: 'text-red-600' };
+                        const icons = { green: '✓', yellow: '⚠', red: '✗' };
+                        return (
+                          <td key={y} className={`py-2 px-3 text-center font-bold ${colors[stato]}`}>
+                            {delta >= 0 ? '+' : ''}{fmt(delta, 0)}€ ({pct >= 0 ? '+' : ''}{fmt(pct, 0)}%) {icons[stato]}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  </tbody>
+                </table>
+                <div className="mt-3 text-xs text-gray-500">
+                  ✓ Delta &lt;10%: Allineato | ⚠ Delta 10-20%: Rivedere | ✗ Delta &gt;20%: Budget non realistico
+                </div>
+              </div>
+            )}
 
             {/* KPI Preview */}
             <div className="p-4 bg-gray-800 rounded-xl">
               <div className="text-sm font-medium text-white mb-3">📊 KPI Acquisizione</div>
               <div className="grid grid-cols-3 gap-4">
                 {[0, 1, 2].map(y => {
-                  const ratio = calc.ltvCacCliente[y];
-                  const payback = calc.cacPaybackCliente[y];
+                  const cac = cacData.finale?.[y] || calc.cacUnitario?.[y] || 0;
+                  const ltv = calc.ltvCliente?.[y] || 0;
+                  const ratio = cac > 0 ? ltv / cac : 0;
+                  const payback = calc.arpuMensile?.[y] > 0 ? cac / calc.arpuMensile[y] : 0;
+                  const cacRatio = cacData.nuovoARR?.[y] > 0 ? cacData.costiFinale?.[y] / cacData.nuovoARR[y] : 0;
                   return (
                     <div key={y} className={`p-4 rounded-lg ${ratio >= 3 ? 'bg-green-900/50' : ratio >= 1 ? 'bg-yellow-900/50' : 'bg-red-900/50'}`}>
                       <div className="text-xs text-gray-300">Anno {y + 1}</div>
                       <div className="text-2xl font-bold text-white">{ratio.toFixed(1)}x</div>
                       <div className="text-xs text-gray-400">LTV/CAC</div>
-                      <div className="text-sm text-gray-300 mt-2">Payback: {payback.toFixed(1)} mesi</div>
-                      <div className={`text-xs font-medium mt-1 ${ratio >= 3 ? 'text-green-400' : ratio >= 1 ? 'text-yellow-400' : 'text-red-400'}`}>
+                      <div className="mt-2 space-y-1 text-sm text-gray-300">
+                        <div>Payback: <span className={payback <= 12 ? 'text-green-400' : 'text-yellow-400'}>{payback.toFixed(1)} mesi</span></div>
+                        <div>CAC Ratio: <span className={cacRatio <= 0.8 ? 'text-green-400' : 'text-yellow-400'}>{(cacRatio * 100).toFixed(0)}%</span></div>
+                      </div>
+                      <div className={`text-xs font-medium mt-2 ${ratio >= 3 ? 'text-green-400' : ratio >= 1 ? 'text-yellow-400' : 'text-red-400'}`}>
                         {ratio >= 3 ? '✓ Ottimo (>3x)' : ratio >= 1 ? '⚠ Migliorabile' : '✗ Critico'}
                       </div>
                     </div>
@@ -2917,6 +3343,13 @@ export default function NanoSatDashboard() {
                 })}
               </div>
             </div>
+
+            {/* Spiegazione */}
+            <InfoBox type="info">
+              <strong>COS'E IL CAC?</strong> Il CAC (Customer Acquisition Cost) e quanto spendi IN MEDIA per conquistare UN nuovo cliente.
+              Include: marketing, venditori, eventi, demo, sconti. <br />
+              <strong>Esempio:</strong> Spendi 50.000€ in S&M e acquisisci 100 clienti → CAC = 500€/cliente
+            </InfoBox>
           </div>
         );
 
